@@ -1,14 +1,17 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Employee from '../pages/Employee';
 import Client from '../pages/Ticketing';
 import Admin from "../pages/Admin";
 import ClientDashboard from '../pages/ClientDashboard';
 import ClientTickets from '../pages/ClientTickets';
+import EmployeeDashboard from '../pages/EmployeeDashboard';
 import Login from '../pages/Login';
 import Register from '../Register';
 import AdminTickets from '../pages/AdminTickets';
 import PropTypes from 'prop-types';
+import Forgot from '../pages/ForgotPassword';
+ 
+ 
 import { auth, db } from '../../firebase/config';
 import { onAuthStateChanged } from 'firebase/auth';
 import { query, collection, where, getDocs } from 'firebase/firestore';
@@ -79,16 +82,59 @@ function AdminRoute({ children }) {
 AdminRoute.propTypes = {
   children: PropTypes.node.isRequired,
 };
+ 
+// Employee Route component
+function EmployeeRoute({ children }) {
+  const [isEmployee, setIsEmployee] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+ 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Check if user is employee in users collection
+        const userQuery = query(
+          collection(db, 'users'),
+          where('email', '==', user.email),
+          where('role', '==', 'employee')
+        );
+        const userSnapshot = await getDocs(userQuery);
+        setIsEmployee(!userSnapshot.empty);
+      } else {
+        setIsEmployee(false);
+      }
+      setIsLoading(false);
+    });
+ 
+    return () => unsubscribe();
+  }, []);
+ 
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+ 
+  if (!isEmployee) {
+    return <Navigate to="/clientdashboard" replace />;
+  }
+ 
+  return children;
+}
+EmployeeRoute.propTypes = {
+  children: PropTypes.node.isRequired,
+};
+ 
 function Routers() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<Forgot />} />
       <Route
-        path="/employee"
+        path="/employeedashboard"
         element={
           <ProtectedRoute>
-            <Employee />
+            <EmployeeRoute>
+              <EmployeeDashboard />
+            </EmployeeRoute>
           </ProtectedRoute>
         }
       />
@@ -141,5 +187,6 @@ function Routers() {
 }
  
 export default Routers;
+ 
  
  

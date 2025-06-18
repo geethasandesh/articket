@@ -121,7 +121,7 @@ const Login = () => {
           navigate("/admin");
           break;
         case 'employee':
-          navigate("/employee");
+          navigate("/employeedashboard");
           break;
         case 'client':
           navigate("/clientdashboard");
@@ -215,7 +215,7 @@ const Login = () => {
               <button
                 type="button"
                 className="text-sm text-gray-600 hover:text-gray-800"
-                onClick={() => navigate("/forget-password")}
+                onClick={() => navigate("/forgot-password")}
               >
                 Forgot Password?
               </button>
@@ -241,21 +241,15 @@ const Login = () => {
       </div>
  
       {/* Right side - Image */}
-      <div className="hidden lg:flex flex-1 items-center justify-center bg-gradient-to-br from-orange-100 via-white to-orange-200 relative">
-        <div className="flex flex-col items-center justify-center w-full">
-          <img
-            className="h-40 w-40 object-contain mb-6 drop-shadow-lg"
-            src={artihcusLogo}
-            alt="Artihcus Logo"
-          />
-          <h3 className="text-2xl font-bold text-orange-500 mb-2">Welcome to Artihcus</h3>
-          <p className="text-gray-600 text-center max-w-xs">Your all-in-one platform for support, collaboration, and productivity.</p>
-        </div>
+      <div className="hidden lg:block relative w-0 flex-1">
+        <img
+          className="absolute inset-0 h-full w-full object-cover"
+          src={artihcusLogo}
+          alt="Artihcus Logo"
+        />
       </div>
     </div>
   );
 };
  
 export default Login;
- 
- 

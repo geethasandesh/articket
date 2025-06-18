@@ -31,23 +31,15 @@ import {
   ChevronsRight,
   Flag,
   Edit,
-  ChevronLeft,
-  BarChart3,
-  PieChart,
-  Zap,
-  TrendingUp,
-  Activity
+  ChevronLeft
 } from 'lucide-react';
 import { collection, query, onSnapshot, doc, updateDoc, serverTimestamp, where, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { auth } from '../../firebase/config';
 import Ticketing from './Ticketing'; // Import the Ticketing component
-import ClientTickets from './ClientTickets'; // Import the ClientTickets component
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
-} from 'recharts';
+import EmployeeTickets from './EmployeeTickets'; // Import the EmployeeTickets component
  
-function ClientDashboard() {
+function EmployeeDashboard() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [error, setError] = useState(null);
@@ -58,7 +50,8 @@ function ClientDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [clientName, setClientName] = useState('');
+  const [employeeName, setEmployeeName] = useState('');
+  const [userRole, setUserRole] = useState(null);
   const [requesterNameFilter, setRequesterNameFilter] = useState('');
   const [technicianFilter, setTechnicianFilter] = useState('');
   const [dueDateFilter, setDueDateFilter] = useState('');
@@ -71,7 +64,68 @@ function ClientDashboard() {
   const unsubscribeRef = useRef(null);
  
   // Mock data for demonstration
-  
+  const mockTickets = [
+    {
+      id: '1',
+      subject: 'Login Issues with Account',
+      description: 'I am unable to log into my account. The password reset link is not working.',
+      status: 'Open',
+      created: new Date('2024-01-15T10:00:00'),
+      ticketNumber: 'TKT-001',
+      adminResponses: [
+        {
+          message: 'Thank you for contacting support. We are looking into your login issue.',
+          timestamp: new Date('2024-01-15T11:00:00')
+        }
+      ],
+      customerResponses: [],
+      customer: 'John Doe',
+      project: 'Technical Support'
+    },
+    {
+      id: '2',
+      subject: 'Billing Question',
+      description: 'I have a question about my recent invoice. The charges seem higher than expected.',
+      status: 'In Progress',
+      created: new Date('2024-01-14T14:30:00'),
+      ticketNumber: 'TKT-002',
+      adminResponses: [
+        {
+          message: 'We have received your billing inquiry and are reviewing your account.',
+          timestamp: new Date('2024-01-14T15:00:00')
+        }
+      ],
+      customerResponses: [
+        {
+          message: 'Thank you for the quick response. I look forward to hearing back.',
+          timestamp: new Date('2024-01-14T15:30:00')
+        }
+      ],
+      customer: 'Jane Smith',
+      project: 'Billing'
+    },
+    {
+      id: '3',
+      subject: 'Feature Request',
+      description: 'It would be great to have a dark mode option in the application.',
+      status: 'Resolved',
+      created: new Date('2024-01-13T09:15:00'),
+      ticketNumber: 'TKT-003',
+      adminResponses: [
+        {
+          message: 'Thank you for the feature request. We will consider this for future updates.',
+          timestamp: new Date('2024-01-13T10:00:00')
+        },
+        {
+          message: 'Good news! Dark mode has been added to our roadmap for the next release.',
+          timestamp: new Date('2024-01-13T16:00:00')
+        }
+      ],
+      customerResponses: [],
+      customer: 'Mike Johnson',
+      project: 'Product'
+    }
+  ];
  
   const setupTicketListener = () => {
     try {
@@ -82,82 +136,62 @@ function ClientDashboard() {
         return;
       }
  
-      // Set client name from email
+      // Set employee name from email
       const email = auth.currentUser.email;
       const name = email.split('@')[0];
-      setClientName(name.charAt(0).toUpperCase() + name.slice(1));
-
-      // Get user's project first
-      let currentProject = 'General';
-      const getUserProject = async () => {
-        try {
-          const userDocRef = doc(db, 'users', auth.currentUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            currentProject = userData.project || 'General';
-            console.log('User project for dashboard:', currentProject);
-          }
-        } catch (err) {
-          console.error('Error fetching user project:', err);
-          currentProject = 'General';
-        }
-
-        // Query tickets for the user's project (all tickets, not just user's own)
-        const q = query(
-          collection(db, 'tickets'),
-          where('project', '==', currentProject)
-        );
-       
-        const unsubscribe = onSnapshot(q,
-          (querySnapshot) => {
-            try {
-              const ticketsData = [];
-              querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                ticketsData.push({
-                  id: doc.id,
-                  subject: data.subject || 'No Subject',
-                  description: data.description || 'No Description',
-                  status: data.status || 'Open',
-                  created: data.created || null,
-                  dueDate: data.dueDate || null,
-                  ticketNumber: data.ticketNumber || `TKT-${doc.id}`,
-                  adminResponses: data.adminResponses || [],
-                  customerResponses: data.customerResponses || [],
-                  customer: data.customer || 'Unknown',
-                  project: data.project || 'General',
-                  email: data.email || 'Unknown'
-                });
+      setEmployeeName(name.charAt(0).toUpperCase() + name.slice(1));
+ 
+      // Query tickets for the current user
+      const q = query(
+        collection(db, 'tickets'),
+        where('email', '==', auth.currentUser.email)
+      );
+     
+      const unsubscribe = onSnapshot(q,
+        (querySnapshot) => {
+          try {
+            const ticketsData = [];
+            querySnapshot.forEach((doc) => {
+              const data = doc.data();
+              ticketsData.push({
+                id: doc.id,
+                subject: data.subject || 'No Subject',
+                description: data.description || 'No Description',
+                status: data.status || 'Open',
+                created: data.created || null,
+                dueDate: data.dueDate || null,
+                ticketNumber: data.ticketNumber || `TKT-${doc.id}`,
+                adminResponses: data.adminResponses || [],
+                customerResponses: data.customerResponses || [],
+                customer: data.customer || 'Unknown',
+                project: data.project || 'General'
               });
-             
-              // Sort tickets by created date
-              ticketsData.sort((a, b) => {
-                const dateA = a.created?.toDate?.() || new Date(a.created);
-                const dateB = b.created?.toDate?.() || new Date(b.created);
-                return dateB - dateA;
-              });
-             
-              setTickets(ticketsData);
-              setError(null);
-              setIsLoading(false);
-            } catch (err) {
-              console.error('Error processing tickets:', err);
-              setError('Error processing tickets. Please try again.');
-              setIsLoading(false);
-            }
-          },
-          (error) => {
-            console.error('Firestore error:', error);
-            setError('Error connecting to the server. Please try again.');
+            });
+           
+            // Sort tickets by created date
+            ticketsData.sort((a, b) => {
+              const dateA = a.created?.toDate?.() || new Date(a.created);
+              const dateB = b.created?.toDate?.() || new Date(b.created);
+              return dateB - dateA;
+            });
+           
+            setTickets(ticketsData);
+            setError(null);
+            setIsLoading(false);
+          } catch (err) {
+            console.error('Error processing tickets:', err);
+            setError('Error processing tickets. Please try again.');
             setIsLoading(false);
           }
-        );
+        },
+        (error) => {
+          console.error('Firestore error:', error);
+          setError('Error connecting to the server. Please try again.');
+          setIsLoading(false);
+        }
+      );
  
-        unsubscribeRef.current = unsubscribe;
-      };
-
-      getUserProject();
+      unsubscribeRef.current = unsubscribe;
     } catch (err) {
       console.error('Connection error:', err);
       setError('Unable to connect to the server. Please check your internet connection and try again.');
@@ -378,6 +412,26 @@ function ClientDashboard() {
     );
   };
  
+  // Fetch latest user role from Firestore on mount
+  useEffect(() => {
+    const fetchRole = async () => {
+      if (auth.currentUser) {
+        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (userDoc.exists()) {
+          const role = userDoc.data().role;
+          setUserRole(role);
+          // If not employee, redirect accordingly
+          if (role === 'client') {
+            navigate('/clientdashboard');
+          } else if (role === 'admin') {
+            navigate('/admin');
+          }
+        }
+      }
+    };
+    fetchRole();
+  }, [navigate]);
+ 
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
@@ -435,7 +489,7 @@ function ClientDashboard() {
                 </div>
                 <div>
                   <h1 className="text-l font-bold text-gray-900">Support Hub</h1>
-                  <p className="text-sm text-gray-500">Client Portal</p>
+                  <p className="text-sm text-gray-500">Employee Portal</p>
                 </div>
               </div>
             )}
@@ -464,8 +518,8 @@ function ClientDashboard() {
                   <User className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{clientName}</p>
-                  <p className="text-xs text-gray-500">Client</p>
+                  <p className="text-sm font-medium text-gray-900">{employeeName}</p>
+                  <p className="text-xs text-gray-500">Employee</p>
                 </div>
               </div>
             )}
@@ -493,8 +547,8 @@ function ClientDashboard() {
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Welcome back, {clientName}!</h1>
-                <p className="text-gray-600">Manage your support tickets and communications</p>
+                <h1 className="text-2xl font-bold text-gray-900">Welcome back, {employeeName}!</h1>
+                <p className="text-gray-600">Manage your assigned support tickets and communications</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -514,213 +568,83 @@ function ClientDashboard() {
         </header>
  
         {/* Dashboard Content */}
-        <main className="flex-1 overflow-auto p-6 bg-gray-50">
+        <main className="flex-1 overflow-auto p-6">
           {activeTab === 'dashboard' && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                <button 
-                  onClick={() => {
-                    setActiveTab('tickets');
-                    // Pass filter data to ClientTickets component
-                    sessionStorage.setItem('ticketFilter', JSON.stringify({
-                      status: 'All',
-                      priority: 'All',
-                      raisedBy: 'all'
-                    }));
-                  }}
-                  className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all duration-300 text-left group"
-                >
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">Total Tickets</p>
-                      <p className="text-3xl font-bold text-gray-900">{tickets.length}</p>
-                      <p className="text-xs text-gray-500 mt-1">All project tickets</p>
+                      <p className="text-sm font-medium text-gray-600">Total Tickets</p>
+                      <p className="text-2xl font-bold text-gray-900">{tickets.length}</p>
                     </div>
-                    <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                       <FileText className="w-6 h-6 text-blue-600" />
                     </div>
                   </div>
-                </button>
-                <button 
-                  onClick={() => {
-                    setActiveTab('tickets');
-                    sessionStorage.setItem('ticketFilter', JSON.stringify({
-                      status: 'All',
-                      priority: 'All',
-                      raisedBy: 'me'
-                    }));
-                  }}
-                  className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all duration-300 text-left group"
-                >
+                </div>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">My Tickets</p>
-                      <p className="text-3xl font-bold text-gray-900">{tickets.filter(t => t.email === auth.currentUser?.email).length}</p>
-                      <p className="text-xs text-gray-500 mt-1">Your tickets</p>
+                      <p className="text-sm font-medium text-gray-600">Open Tickets</p>
+                      <p className="text-2xl font-bold text-blue-600">{tickets.filter(t => t.status === 'Open').length}</p>
                     </div>
-                    <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                      <User className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </div>
-                </button>
-                <button 
-                  onClick={() => {
-                    setActiveTab('tickets');
-                    sessionStorage.setItem('ticketFilter', JSON.stringify({
-                      status: 'Open',
-                      priority: 'All',
-                      raisedBy: 'all'
-                    }));
-                  }}
-                  className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all duration-300 text-left group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">Open Tickets</p>
-                      <p className="text-3xl font-bold text-gray-900">{tickets.filter(t => t.status === 'Open').length}</p>
-                      <p className="text-xs text-gray-500 mt-1">Needs attention</p>
-                    </div>
-                    <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                       <AlertCircle className="w-6 h-6 text-blue-600" />
                     </div>
                   </div>
-                </button>
-                <button 
-                  onClick={() => {
-                    setActiveTab('tickets');
-                    sessionStorage.setItem('ticketFilter', JSON.stringify({
-                      status: 'In Progress',
-                      priority: 'All',
-                      raisedBy: 'all'
-                    }));
-                  }}
-                  className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all duration-300 text-left group"
-                >
+                </div>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">In Progress</p>
-                      <p className="text-3xl font-bold text-gray-900">{tickets.filter(t => t.status === 'In Progress').length}</p>
-                      <p className="text-xs text-gray-500 mt-1">Being worked on</p>
+                      <p className="text-sm font-medium text-gray-600">In Progress</p>
+                      <p className="text-2xl font-bold text-amber-600">{tickets.filter(t => t.status === 'In Progress').length}</p>
                     </div>
-                    <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                      <Clock className="w-6 h-6 text-blue-600" />
+                    <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                      <Clock className="w-6 h-6 text-amber-600" />
                     </div>
-                  </div>
-                </button>
-                <button 
-                  onClick={() => {
-                    setActiveTab('tickets');
-                    sessionStorage.setItem('ticketFilter', JSON.stringify({
-                      status: 'Resolved',
-                      priority: 'All',
-                      raisedBy: 'all'
-                    }));
-                  }}
-                  className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all duration-300 text-left group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">Resolved</p>
-                      <p className="text-3xl font-bold text-gray-900">{tickets.filter(t => t.status === 'Resolved').length}</p>
-                      <p className="text-xs text-gray-500 mt-1">Completed</p>
-                    </div>
-                    <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                      <CheckCircle className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </div>
-                </button>
-              </div>
-
-              {/* Charts and Analytics Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Status Distribution Line Chart */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                    <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
-                    Ticket Status Trends
-                  </h3>
-                  <div className="h-64 bg-gray-50 rounded-lg p-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={[
-                          { name: 'Open', value: tickets.filter(t => t.status === 'Open').length },
-                          { name: 'In Progress', value: tickets.filter(t => t.status === 'In Progress').length },
-                          { name: 'Resolved', value: tickets.filter(t => t.status === 'Resolved').length },
-                          { name: 'Closed', value: tickets.filter(t => t.status === 'Closed').length }
-                        ]}
-                        margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 14 }} axisLine={false} tickLine={false} />
-                        <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 14 }} axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', color: '#334155' }} />
-                        <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={3} dot={{ r: 6, fill: '#2563eb', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
                   </div>
                 </div>
-
-                {/* Priority Distribution Line Chart */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                    <Activity className="w-5 h-5 mr-2 text-blue-600" />
-                    Priority Distribution
-                  </h3>
-                  <div className="h-64 bg-gray-50 rounded-lg p-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={[
-                          { name: 'High', value: tickets.filter(t => t.priority === 'High').length },
-                          { name: 'Medium', value: tickets.filter(t => t.priority === 'Medium').length },
-                          { name: 'Low', value: tickets.filter(t => t.priority === 'Low').length }
-                        ]}
-                        margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 14 }} axisLine={false} tickLine={false} />
-                        <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 14 }} axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', color: '#334155' }} />
-                        <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={3} dot={{ r: 6, fill: '#2563eb', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Resolved</p>
+                      <p className="text-2xl font-bold text-emerald-600">{tickets.filter(t => t.status === 'Resolved').length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                      <CheckCircle className="w-6 h-6 text-emerald-600" />
+                    </div>
                   </div>
                 </div>
               </div>
-
+ 
               {/* Quick Actions */}
-              <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                  <Zap className="w-6 h-6 mr-3 text-blue-600" />
-                  Quick Actions
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <button
                     onClick={() => navigate('/ticketing')}
-                    className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-300 text-left"
+                    className="flex items-center space-x-3 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all duration-200"
                   >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <Plus className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-semibold text-gray-900 text-lg">Create New Ticket</p>
-                        <p className="text-gray-600 text-sm">Submit a new support request</p>
-                      </div>
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      {/* Removed Plus icon */}
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900">Create New Ticket</p>
+                      <p className="text-sm text-gray-500">Submit a new support request</p>
                     </div>
                   </button>
                   <button
                     onClick={() => setActiveTab('tickets')}
-                    className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-300 text-left"
+                    className="flex items-center space-x-3 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all duration-200"
                   >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <FileText className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-semibold text-gray-900 text-lg">View Project Tickets</p>
-                        <p className="text-gray-600 text-sm">Check status of all project tickets</p>
-                      </div>
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900">View My Tickets</p>
+                      <p className="text-sm text-gray-500">Check status of assigned tickets</p>
                     </div>
                   </button>
                 </div>
@@ -728,10 +652,10 @@ function ClientDashboard() {
             </div>
           )}
  
-          {activeTab === 'tickets' && <ClientTickets />}
+          {activeTab === 'tickets' && <EmployeeTickets />}
  
           {activeTab === 'create' && (
-            <div className="max-w-auto mx-auto">
+            <div className="max-w-4xl mx-auto">
               <Ticketing />
             </div>
           )}
@@ -755,5 +679,6 @@ function ClientDashboard() {
   );
 }
  
-export default ClientDashboard;
+export default EmployeeDashboard;
+ 
  
