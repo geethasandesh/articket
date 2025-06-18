@@ -151,7 +151,7 @@ const Login = () => {
             </h2>
             <p className="text-gray-600 mb-8">
               Simplify your workflow and boost your productivity<br />
-              with Artihcus. <span className="text-orange-500 font-medium">Get started .</span>
+              with Artihcus. <span className="text-orange-500 font-medium">Get started ..</span>
             </p>
           </div>
  
