@@ -16,7 +16,8 @@ import {
   ChevronUp,
   DownloadCloud,
   Filter,
-  Trash2
+  Trash2,
+  Search
 } from 'lucide-react';
 import { serverTimestamp, updateDoc, doc, onSnapshot, collection, query, orderBy, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -29,8 +30,10 @@ function AdminTickets() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     priority: '',
+    status: '',
     project: '',
     applied: false
   });
@@ -181,22 +184,31 @@ function AdminTickets() {
   const clearFilters = () => {
     setFilters({
       priority: '',
+      status: '',
       project: '',
       applied: false
     });
   };
  
   const filteredTickets = Object.entries(tickets).reduce((acc, [project, projectTickets]) => {
-    if (filters.applied) {
+    if (filters.applied || searchTerm) {
       const filteredProjectTickets = projectTickets.filter(ticket => {
         const matchesPriority = !filters.priority || ticket.priority === filters.priority;
         const matchesProject = !filters.project || ticket.project === filters.project;
-        return matchesPriority && matchesProject;
+        const matchesStatus = !filters.status || ticket.status === filters.status;
+        const matchesSearch = !searchTerm ||
+          ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          ticket.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          ticket.email?.toLowerCase().includes(searchTerm.toLowerCase());
+       
+        return matchesPriority && matchesProject && matchesStatus && matchesSearch;
       });
  
       if (filteredProjectTickets.length > 0) {
         acc[project] = filteredProjectTickets;
       }
+    } else {
+      acc[project] = projectTickets;
     }
     return acc;
   }, {});
@@ -210,136 +222,201 @@ function AdminTickets() {
   }
  
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Ticket Management</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowFilterModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            <Filter className="w-5 h-5" />
-            Filter Tickets
-          </button>
-          {filters.applied && (
-            <button
-              onClick={clearFilters}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900"
-            >
-              Clear Filters
-            </button>
-          )}
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Ticket Management</h1>
+          <p className="text-gray-600 mt-1">Manage and track all support tickets</p>
         </div>
       </div>
  
-      {!filters.applied ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500">Please apply filters to view tickets</p>
+      {/* Filter Bar */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Search Input */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search tickets..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+          </div>
+ 
+          {/* Status Filter */}
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value, applied: true }))}
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Statuses</option>
+            {statuses.map(status => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+ 
+          {/* Priority Filter */}
+          <select
+            value={filters.priority}
+            onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value, applied: true }))}
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Priorities</option>
+            {priorities.map(priority => (
+              <option key={priority.value} value={priority.value}>{priority.value}</option>
+            ))}
+          </select>
+ 
+          {/* Project Filter */}
+          <select
+            value={filters.project}
+            onChange={(e) => setFilters(prev => ({ ...prev, project: e.target.value, applied: true }))}
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Projects</option>
+            {projects.map(project => (
+              <option key={project.id} value={project.name}>{project.name}</option>
+            ))}
+          </select>
+        </div>
+ 
+        {/* Filter Actions */}
+        {(filters.applied || searchTerm) && (
+          <div className="mt-4 flex items-center justify-end space-x-3">
+            <button
+              onClick={() => {
+                setFilters({
+                  priority: '',
+                  status: '',
+                  project: '',
+                  applied: false
+                });
+                setSearchTerm('');
+              }}
+              className="px-3 py-1.5 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2 text-sm"
+            >
+              <X className="w-4 h-4" />
+              <span>Clear All Filters</span>
+            </button>
+          </div>
+        )}
+      </div>
+ 
+      {/* Tickets Grid */}
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
         </div>
       ) : Object.keys(filteredTickets).length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No tickets found matching the applied filters</p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+          <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <Filter className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No tickets found</h3>
+          <p className="text-gray-600">
+            {filters.applied || searchTerm
+              ? "No tickets match your current filters. Try adjusting your search criteria."
+              : "There are no tickets in the system yet."}
+          </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-6">
           {Object.entries(filteredTickets).map(([project, projectTickets]) => (
-            <div key={project} className="bg-white rounded-lg shadow">
+            <div key={project} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              {/* Project Header */}
               <div
-                className="p-4 flex justify-between items-center cursor-pointer"
+                className="p-4 border-b border-gray-200 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
                 onClick={() => setExpandedProject(expandedProject === project ? null : project)}
               >
                 <div className="flex items-center space-x-3">
-                  <Projector className="w-5 h-5 text-gray-500" />
-                  <h2 className="text-lg font-semibold text-gray-900">{project}</h2>
-                  <span className="text-sm text-gray-500">({projectTickets.length} tickets)</span>
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <Projector className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{project}</h3>
+                    <p className="text-sm text-gray-600">{projectTickets.length} tickets</p>
+                  </div>
                 </div>
-                {expandedProject === project ? (
-                  <ChevronUp className="w-5 h-5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-500" />
-                )}
+                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  {expandedProject === project ? (
+                    <ChevronUp className="w-5 h-5 text-gray-600" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-600" />
+                  )}
+                </button>
               </div>
  
+              {/* Tickets List */}
               {expandedProject === project && (
-                <div className="border-t border-gray-200">
+                <div className="divide-y divide-gray-200">
                   {projectTickets.map((ticket) => (
-                    <div key={ticket.id} className="p-4 border-b border-gray-200 last:border-b-0">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-2">
+                    <div key={ticket.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1 flex-1">
                           <div className="flex items-center space-x-2">
-                            <h3 className="text-md font-medium text-gray-900">{ticket.subject}</h3>
-                            <span className={`text-sm ${getPriorityColor(ticket.priority)}`}>
+                            <span className={`text-sm font-medium ${getPriorityColor(ticket.priority)}`}>
                               {ticket.priority}
                             </span>
-                            <span className="text-sm text-gray-500">
-                              #{ticket.ticketNumber}
+                            <span className="text-gray-400">•</span>
+                            <span className={`text-sm font-medium ${
+                              ticket.status === 'Open' ? 'text-green-600' :
+                              ticket.status === 'In Progress' ? 'text-blue-600' :
+                              ticket.status === 'Resolved' ? 'text-purple-600' : 'text-gray-600'
+                            }`}>
+                              {ticket.status}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600">{ticket.description}</p>
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
-                            <span className="flex items-center">
+                          <h4 className="text-base font-medium text-gray-900">{ticket.subject}</h4>
+                          <p className="text-sm text-gray-600 line-clamp-2">{ticket.description}</p>
+                         
+                          {/* Ticket Details */}
+                          <div className="flex items-center space-x-4 mt-2">
+                            <div className="flex items-center text-sm text-gray-500">
                               <User className="w-4 h-4 mr-1" />
-                              {ticket.customer}
-                            </span>
-                            <span className="flex items-center">
+                              <span>{ticket.createdBy}</span>
+                            </div>
+                            <div className="flex items-center text-sm text-gray-500">
                               <Mail className="w-4 h-4 mr-1" />
-                              {ticket.email}
-                            </span>
-                            <span className="flex items-center">
+                              <span>{ticket.email}</span>
+                            </div>
+                            <div className="flex items-center text-sm text-gray-500">
                               <Clock className="w-4 h-4 mr-1" />
-                              {new Date(ticket.created?.toDate()).toLocaleDateString()}
-                            </span>
+                              <span>{new Date(ticket.created?.seconds * 1000).toLocaleDateString()}</span>
+                            </div>
                           </div>
+ 
+                          {/* Attachments */}
                           {ticket.attachments && ticket.attachments.length > 0 && (
-                            <div className="mt-3 space-y-2">
-                              <p className="text-sm font-medium text-gray-700 flex items-center">
-                                <Paperclip className="w-4 h-4 mr-1" /> Attachments:
-                              </p>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {ticket.attachments.map((attachment, idx) => (
-                                  <div key={idx} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors justify-between">
-                                    <a
-                                      href={attachment.data}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center space-x-2 flex-grow"
-                                    >
-                                      {getFileIcon(attachment)}
-                                      <div>
-                                        <p className="text-sm font-medium text-blue-600 hover:underline">
-                                          {attachment.name}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                          {formatFileSize(attachment.size)}
-                                        </p>
-                                      </div>
-                                    </a>
-                                    <a
-                                      href={attachment.data}
-                                      download={attachment.name}
-                                      className="p-1 text-gray-500 hover:text-blue-600"
-                                      title="Download file"
-                                    >
-                                      <DownloadCloud className="w-4 h-4" />
-                                    </a>
-                                  </div>
-                                ))}
-                              </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {ticket.attachments.map((file, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center space-x-2 px-3 py-1 bg-gray-100 rounded-lg text-sm"
+                                >
+                                  {getFileIcon(file)}
+                                  <span className="text-gray-700">{formatFileSize(file.size)}</span>
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center space-x-2">
+ 
+                        {/* Actions */}
+                        <div className="flex items-center space-x-2 ml-4">
                           <button
                             onClick={() => handleEditTicket(ticket)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                            className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           >
-                            <Edit2 className="w-5 h-5" />
+                            <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteTicket(ticket.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                            className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
-                            <Trash2 className="w-5 h-5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -352,169 +429,113 @@ function AdminTickets() {
         </div>
       )}
  
-      {/* Filter Modal */}
-      {showFilterModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Filter Tickets</h2>
-              <button
-                onClick={() => setShowFilterModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Priority
-                </label>
-                <select
-                  value={filters.priority}
-                  onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">All Priorities</option>
-                  {priorities.map(priority => (
-                    <option key={priority.value} value={priority.value}>{priority.value}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Project
-                </label>
-                <select
-                  value={filters.project}
-                  onChange={(e) => setFilters(prev => ({ ...prev, project: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">All Projects</option>
-                  {projects.map(project => (
-                    <option key={project.id} value={project.name}>{project.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setShowFilterModal(false)}
-                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={applyFilters}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Apply Filters
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
- 
       {/* Edit Ticket Modal */}
-      {showEditModal && selectedTicket && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Edit Ticket</h2>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-           
-            <form onSubmit={handleUpdateTicket} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  value={editFormData.status}
-                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  {statuses.map(status => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
+      {showEditModal && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+          {/* Glossy Backdrop */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white-500/30 to-white-500/30 backdrop-blur-md"></div>
+         
+          {/* Modal Content */}
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
+            <div className="relative p-6">
+              {/* Decorative Elements */}
+              <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-2xl pointer-events-none">
+                <div className="absolute -top-32 -left-32 w-64 h-64 bg-blue-500 rounded-full opacity-10 blur-3xl"></div>
+                <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-purple-500 rounded-full opacity-10 blur-3xl"></div>
               </div>
  
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Priority
-                </label>
-                <select
-                  value={editFormData.priority}
-                  onChange={(e) => setEditFormData({ ...editFormData, priority: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  {priorities.map(priority => (
-                    <option key={priority.value} value={priority.value}>{priority.value}</option>
-                  ))}
-                </select>
-              </div>
- 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category
-                </label>
-                <select
-                  value={editFormData.category}
-                  onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  {categories.map(category => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
-              </div>
- 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Subject
-                </label>
-                <input
-                  type="text"
-                  value={editFormData.subject}
-                  onChange={(e) => setEditFormData({ ...editFormData, subject: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
- 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={editFormData.description}
-                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  rows="4"
-                />
-              </div>
- 
-              <div className="flex justify-end gap-3">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center mb-6 relative">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Edit Ticket</h3>
+                  <p className="text-sm text-gray-600 mt-1">Update ticket details</p>
+                </div>
                 <button
-                  type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100/50 rounded-lg transition-colors"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Update Ticket
+                  <X className="w-6 h-6" />
                 </button>
               </div>
-            </form>
+ 
+              {/* Edit Form */}
+              <form onSubmit={handleUpdateTicket} className="space-y-4 relative">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={editFormData.status}
+                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                    {statuses.map((status) => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </div>
+ 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <select
+                    value={editFormData.priority}
+                    onChange={(e) => setEditFormData({ ...editFormData, priority: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                    {priorities.map((priority) => (
+                      <option key={priority.value} value={priority.value}>{priority.value}</option>
+                    ))}
+                  </select>
+                </div>
+ 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={editFormData.category}
+                    onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                    {categories.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+ 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                  <input
+                    type="text"
+                    value={editFormData.subject}
+                    onChange={(e) => setEditFormData({ ...editFormData, subject: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  />
+                </div>
+ 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    rows={4}
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                  />
+                </div>
+ 
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 text-gray-700 bg-gray-100/80 backdrop-blur-sm rounded-xl hover:bg-gray-200/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200"
+                  >
+                    Update Ticket
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -523,5 +544,3 @@ function AdminTickets() {
 }
  
 export default AdminTickets;
- 
- 

@@ -129,22 +129,10 @@ const ClientHeadTickets = ({ setActiveTab }) => {
 
           // Set up real-time listener for tickets
           const ticketsCollectionRef = collection(db, 'tickets');
-          let q = query(
+          const q = query(
             ticketsCollectionRef,
             where('project', '==', selectedProject)
           );
-
-          // Add additional filter if an employee is selected
-          if (filterRaisedByEmployee !== 'all' && filterRaisedByEmployee !== 'me') {
-            const selectedEmployee = employees.find(emp => emp.id === filterRaisedByEmployee);
-            if (selectedEmployee) {
-              q = query(
-                ticketsCollectionRef,
-                where('project', '==', selectedProject),
-                where('email', '==', selectedEmployee.email)
-              );
-            }
-          }
 
           const unsubscribeTickets = onSnapshot(q, (snapshot) => {
             const tickets = snapshot.docs.map(doc => ({
@@ -173,7 +161,7 @@ const ClientHeadTickets = ({ setActiveTab }) => {
     });
 
     return () => unsubscribeAuth();
-  }, [selectedProject, filterRaisedByEmployee]);
+  }, [selectedProject]);
 
   const handleTicketClick = (ticketId) => {
     setSelectedTicketId(ticketId);
@@ -200,18 +188,22 @@ const ClientHeadTickets = ({ setActiveTab }) => {
         : null;
 
     if (ticketUser === 'employee') {
-      if (filterRaisedByEmployee === 'me') {
+      if (filterRaisedByEmployee === 'all') {
+        matchesRaisedBy = true;
+      } else if (filterRaisedByEmployee === 'me') {
         matchesRaisedBy = ticket.email === currentUserEmail;
-      } else if (filterRaisedByEmployee !== 'all') {
+      } else {
         const selectedEmployee = employees.find(emp => emp.id === filterRaisedByEmployee);
-        matchesRaisedBy = selectedEmployee && ticket.email === selectedEmployee.email;
+        matchesRaisedBy = selectedEmployee ? ticket.email === selectedEmployee.email : false;
       }
     } else if (ticketUser === 'client') {
-      if (filterRaisedByClient === 'me') {
+      if (filterRaisedByClient === 'all') {
+        matchesRaisedBy = true;
+      } else if (filterRaisedByClient === 'me') {
         matchesRaisedBy = ticket.email === currentUserEmail;
-      } else if (filterRaisedByClient !== 'all') {
+      } else {
         const selectedClient = clients.find(client => client.id === filterRaisedByClient);
-        matchesRaisedBy = selectedClient && ticket.email === selectedClient.email;
+        matchesRaisedBy = selectedClient ? ticket.email === selectedClient.email : false;
       }
     }
     

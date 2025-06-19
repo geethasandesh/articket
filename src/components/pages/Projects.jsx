@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, arrayUnion, onSnapshot, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase/config';
-import { Plus, X, Edit2, Trash2, UserPlus, CheckCircle2, User, Briefcase, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import {
+  Plus,
+  X,
+  Edit2,
+  Trash2,
+  UserPlus,
+  CheckCircle2,
+  User,
+  Briefcase,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Users,
+  Search,
+  Filter,
+  Clock,
+  Settings,
+  MoreVertical
+} from 'lucide-react';
 
 function Projects() {
   const [projects, setProjects] = useState([]);
@@ -361,168 +379,258 @@ function Projects() {
     }
   };
 
-  return (
-    <>
-      <div className="p-6 bg-gray-100 min-h-screen">
-        {/* Notification */}
-      {notification.show && (
-          <div className={`mb-4 p-3 rounded-lg flex items-center ${notification.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-            {notification.type === 'success' ? <CheckCircle2 size={20} className="mr-2" /> : <AlertTriangle size={20} className="mr-2" />}
-            {notification.message}
+  const renderProjectMembers = (project) => {
+    const employees = project.members?.filter(m => m.userType === 'employee') || [];
+    const clients = project.members?.filter(m => m.userType === 'client') || [];
+
+    return (
+      <div className="mt-4 space-y-6">
+        {/* Project Members Header */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Project Members</h3>
         </div>
-      )}
 
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Projects Management</h2>
-        <button
-          onClick={() => setShowAddProjectModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
-        >
-            <Plus size={20} /> Create New Project
-        </button>
-      </div>
-
-        {/* Project List */}
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          </div>
-        ) : (
-      <div className="space-y-4">
-            {projects.length === 0 && <p className="text-gray-500 text-center col-span-full">No projects created yet.</p>}
-        {projects.map(project => (
-              <div 
-                key={project.id} 
-                className="bg-white rounded-lg shadow-sm border p-5 cursor-pointer hover:shadow-md transition-shadow"
-              >
-                <div 
-                  className="flex justify-between items-center mb-4"
-                  onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
-                >
-                  <div className="flex items-center space-x-3">
-                <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
-                      <p className="text-sm text-gray-600">{project.description}</p>
+        {/* Team Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Employees Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Briefcase className="w-5 h-5 text-blue-600" />
+                  <h4 className="text-base font-medium text-gray-900">Team Members ({employees.length})</h4>
                 </div>
-              </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">{project.members?.length || 0} members</span>
-                    
                 <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteClick(project.id, e); }}
-                  className="text-gray-400 hover:text-red-500 transition-colors"
+                  onClick={() => {
+                    setSelectedProject(project);
+                    setFormData({
+                      ...formData,
+                      userType: 'employee',
+                      role: 'employee'
+                    });
+                    setShowAddPersonModal(true);
+                  }}
+                  className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center space-x-1"
                 >
-                  <Trash2 className="w-5 h-5" />
+                  <UserPlus className="w-4 h-4" />
+                  <span className="text-sm font-medium">Add Employee</span>
                 </button>
-                {expandedProject === project.id ? (
-                  <ChevronUp className="w-5 h-5 text-gray-400" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
-                )}
               </div>
             </div>
-
-            {expandedProject === project.id && (
-                  <div className="border-t border-gray-200 mt-4 pt-4">
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">Team Members</h4>
-                    {project.members && project.members.length > 0 ? (
-                      <>
-                        {/* Clients Section */}
-                        {
-                          project.members.filter(member => member.userType === 'client').length > 0 && (
-                <div className="mb-4">
-                              <h5 className="text-sm font-semibold text-gray-700 mb-2">Clients</h5>
-                              <ul className="space-y-2">
-                                {project.members.filter(member => member.userType === 'client').map((member, index) => (
-                                  <li key={index} className="flex justify-between items-center bg-gray-50 p-3 rounded-md">
-                        <div className="flex items-center">
-                                      <User size={16} className="text-gray-500 mr-2" />
-                                      <span className="text-gray-700">{member.email}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <span className="text-sm text-gray-600 capitalize">{member.role?.replace('_', ' ')}</span>
-                                      <button
-                                        onClick={() => handleEditMember(member)}
-                                        className="text-blue-500 hover:text-blue-700 transition-colors"
-                                      >
-                                        <Edit2 size={16} />
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteMember(member, project.id);
-                                        }}
-                                        className="text-red-500 hover:text-red-700 transition-colors"
-                                        title="Remove member from project"
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
-                                    </div>
-                                  </li>
-                                ))}
-                              </ul>
-                          </div>
-                          )
-                        }
-
-                        {/* Employees Section */}
-                        {
-                          project.members.filter(member => member.userType === 'employee').length > 0 && (
-                          <div>
-                              <h5 className="text-sm font-semibold text-gray-700 mb-2">Employees</h5>
-                              <ul className="space-y-2">
-                                {project.members.filter(member => member.userType === 'employee').map((member, index) => (
-                                  <li key={index} className="flex justify-between items-center bg-gray-50 p-3 rounded-md">
-                                    <div className="flex items-center">
-                                      <User size={16} className="text-gray-500 mr-2" />
-                                      <span className="text-gray-700">{member.email}</span>
-                          </div>
-                                    <div className="flex items-center space-x-2">
-                                      <span className="text-sm text-gray-600 capitalize">{member.role?.replace('_', ' ')}</span>
-                                      <button
-                                        onClick={() => handleEditMember(member)}
-                                        className="text-blue-500 hover:text-blue-700 transition-colors"
-                                      >
-                                        <Edit2 size={16} />
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteMember(member, project.id);
-                                        }}
-                                        className="text-red-500 hover:text-red-700 transition-colors"
-                                        title="Remove member from project"
-                                      >
-                                        <Trash2 size={16} />
-                        </button>
+            <div className="p-4">
+              <div className="space-y-3">
+                {employees.map((member) => (
+                  <div key={member.uid} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <User className="w-5 h-5 text-blue-600" />
                       </div>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )
-                        }
-                      </>
-                    ) : (
-                      <p className="text-gray-500 text-sm">No members added to this project yet.</p>
-                    )}
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{member.email}</p>
+                        <p className="text-xs text-gray-500 capitalize">{member.role.replace('_', ' ')}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          setEditingMember(member);
+                          setShowEditMemberModal(true);
+                        }}
+                        className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMember(member, project.id)}
+                        className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {employees.length === 0 && (
+                  <div className="text-center py-6">
+                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Briefcase className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <p className="text-sm text-gray-500">No team members yet</p>
                     <button
                       onClick={() => {
                         setSelectedProject(project);
+                        setFormData({
+                          ...formData,
+                          userType: 'employee',
+                          role: 'employee'
+                        });
                         setShowAddPersonModal(true);
                       }}
-                      className="mt-4 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg flex items-center gap-1 hover:bg-green-700 transition-colors"
+                      className="mt-2 text-sm text-blue-600 hover:text-blue-700"
                     >
-                      <UserPlus size={16} /> Add Member
+                      Add your first team member
                     </button>
                   </div>
                 )}
               </div>
-            ))}
+            </div>
           </div>
-        )}
+
+          {/* Clients Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Users className="w-5 h-5 text-purple-600" />
+                  <h4 className="text-base font-medium text-gray-900">Client Members ({clients.length})</h4>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedProject(project);
+                    setFormData({
+                      ...formData,
+                      userType: 'client',
+                      role: 'client'
+                    });
+                    setShowAddPersonModal(true);
+                  }}
+                  className="px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors flex items-center space-x-1"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span className="text-sm font-medium">Add Client</span>
+                </button>
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="space-y-3">
+                {clients.map((member) => (
+                  <div key={member.uid} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                        <User className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{member.email}</p>
+                        <p className="text-xs text-gray-500 capitalize">{member.role.replace('_', ' ')}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          setEditingMember(member);
+                          setShowEditMemberModal(true);
+                        }}
+                        className="p-1.5 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMember(member, project.id)}
+                        className="p-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {clients.length === 0 && (
+                  <div className="text-center py-6">
+                    <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+                      <Users className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <p className="text-sm text-gray-500">No client members yet</p>
+                    <button
+                      onClick={() => {
+                        setSelectedProject(project);
+                        setFormData({
+                          ...formData,
+                          userType: 'client',
+                          role: 'client'
+                        });
+                        setShowAddPersonModal(true);
+                      }}
+                      className="mt-2 text-sm text-purple-600 hover:text-purple-700"
+                    >
+                      Add your first client
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Projects Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
+          <p className="text-gray-600 mt-1">Manage your projects and team members</p>
+        </div>
+        <button
+          onClick={() => setShowAddProjectModal(true)}
+          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center space-x-2"
+        >
+          <Plus className="w-5 h-5" />
+          <span>New Project</span>
+        </button>
+      </div>
+
+      {/* Projects List */}
+      <div className="grid grid-cols-1 gap-6">
+        {projects.map((project) => (
+          <div key={project.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {/* Project Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">{project.name}</h2>
+                  <p className="text-gray-600 mt-1">{project.description}</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setExpandedProject(expandedProject === project.id ? null : project.id)}
+                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    {expandedProject === project.id ? (
+                      <ChevronUp className="w-5 h-5" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5" />
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => handleDeleteClick(project.id, e)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Project Stats */}
+              <div className="mt-4 flex items-center space-x-6">
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <Users className="w-5 h-5" />
+                  <span>{project.members?.length || 0} members</span>
+                </div>
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <Clock className="w-5 h-5" />
+                  <span>Created {new Date(project.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Project Members Section (Expandable) */}
+            {expandedProject === project.id && (
+              <div className="p-6 bg-gray-50">
+                {renderProjectMembers(project)}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Add Project Modal */}
@@ -531,10 +639,13 @@ function Projects() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-800">Create New Project</h3>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Create New Project</h3>
+                  <p className="text-sm text-gray-600 mt-1">Add a new project to your workspace</p>
+                </div>
                 <button
                   onClick={() => setShowAddProjectModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -546,7 +657,7 @@ function Projects() {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     placeholder="Enter project name"
                     required
                   />
@@ -556,7 +667,7 @@ function Projects() {
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     placeholder="Enter project description"
                     rows="3"
                     required
@@ -566,13 +677,13 @@ function Projects() {
                   <button
                     type="button"
                     onClick={() => setShowAddProjectModal(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-colors"
                   >
                     Create Project
                   </button>
@@ -585,109 +696,137 @@ function Projects() {
 
       {/* Add Person Modal */}
       {showAddPersonModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-800">Add Team Member to {selectedProject?.name}</h3>
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+          {/* Glossy Backdrop */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white-500/30 to-white-500/30 backdrop-blur-md"></div>
+          
+          {/* Modal Content */}
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
+            <div className="relative p-6">
+              {/* Decorative Elements */}
+              <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-2xl pointer-events-none">
+                <div className="absolute -top-32 -left-32 w-64 h-64 bg-blue-500 rounded-full opacity-10 blur-3xl"></div>
+                <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-purple-500 rounded-full opacity-10 blur-3xl"></div>
+              </div>
+
+              {/* Modal Header */}
+              <div className="flex justify-between items-center mb-6 relative">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    Add {formData.userType === 'employee' ? 'Team Member' : 'Client'}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Add a new {formData.userType === 'employee' ? 'team member' : 'client'} to {selectedProject?.name}
+                  </p>
+                </div>
                 <button
                   onClick={() => setShowAddPersonModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100/50 rounded-lg transition-colors relative"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
-              <form onSubmit={handleAddPerson} className="space-y-4">
+
+              {/* Form */}
+              <form onSubmit={handleAddPerson} className="space-y-4 relative">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="Enter email"
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Enter email address"
                     required
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                   <input
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="Enter password"
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Enter temporary password"
                     required
                   />
                 </div>
-                
-                {/* User Type Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">User Type</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, userType: 'client', role: 'client' })}
-                      className={`flex items-center justify-center p-3 rounded-lg border-2 transition-colors ${
-                        formData.userType === 'client'
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 hover:border-blue-200'
-                      }`}
-                    >
-                      <User className="w-5 h-5 mr-2" />
-                      <span>Client</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, userType: 'employee', role: 'employee' })}
-                      className={`flex items-center justify-center p-3 rounded-lg border-2 transition-colors ${
-                        formData.userType === 'employee'
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 hover:border-blue-200'
-                      }`}
-                    >
-                      <Briefcase className="w-5 h-5 mr-2" />
-                      <span>Employee</span>
-                    </button>
-                  </div>
-                </div>
 
-                {/* Role Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    required
-                  >
-                    {formData.userType === 'client' ? (
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Role</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {formData.userType === 'employee' ? (
                       <>
-                        <option value="client">Client</option>
-                        <option value="head">Client Head</option>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, role: 'employee' })}
+                          className={`p-3 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                            formData.role === 'employee'
+                              ? 'border-blue-500 bg-blue-50/50 text-blue-700'
+                              : 'border-gray-200 hover:border-blue-200 bg-white/50'
+                          }`}
+                        >
+                          Regular Employee
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, role: 'manager' })}
+                          className={`p-3 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                            formData.role === 'manager'
+                              ? 'border-blue-500 bg-blue-50/50 text-blue-700'
+                              : 'border-gray-200 hover:border-blue-200 bg-white/50'
+                          }`}
+                        >
+                          Project Manager
+                        </button>
                       </>
                     ) : (
                       <>
-                        <option value="employee">Employee</option>
-                        <option value="manager">Project Manager</option>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, role: 'client' })}
+                          className={`p-3 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                            formData.role === 'client'
+                              ? 'border-purple-500 bg-purple-50/50 text-purple-700'
+                              : 'border-gray-200 hover:border-purple-200 bg-white/50'
+                          }`}
+                        >
+                          Regular Client
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, role: 'head' })}
+                          className={`p-3 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                            formData.role === 'head'
+                              ? 'border-purple-500 bg-purple-50/50 text-purple-700'
+                              : 'border-gray-200 hover:border-purple-200 bg-white/50'
+                          }`}
+                        >
+                          Client Head
+                        </button>
                       </>
                     )}
-                  </select>
+                  </div>
                 </div>
 
-                <div className="flex justify-end space-x-3 pt-4">
+                <div className="flex justify-end space-x-3 pt-4 relative">
                   <button
                     type="button"
                     onClick={() => setShowAddPersonModal(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="px-4 py-2 text-gray-700 bg-gray-100/80 backdrop-blur-sm rounded-xl hover:bg-gray-200/80 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className={`px-4 py-2 text-white rounded-xl transition-all duration-200 ${
+                      formData.userType === 'employee'
+                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40'
+                        : 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40'
+                    }`}
                   >
-                    Add Member
+                    Add {formData.userType === 'employee' ? 'Team Member' : 'Client'}
                   </button>
                 </div>
               </form>
@@ -699,32 +838,27 @@ function Projects() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-800">Confirm Deletion</h3>
-                <button
-                  onClick={() => setShowDeleteConfirmModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8 text-red-600" />
               </div>
-              <p className="text-gray-700 mb-6">Are you sure you want to delete this project? This action cannot be undone.</p>
-              <div className="flex justify-end space-x-3">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Delete Project?</h3>
+              <p className="text-gray-600 mb-6">
+                This action cannot be undone. All project data and member associations will be permanently removed.
+              </p>
+              <div className="flex justify-center space-x-3">
                 <button
-                  type="button"
                   onClick={() => setShowDeleteConfirmModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
                   onClick={handleDeleteConfirm}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors"
                 >
-                  Delete
+                  Delete Project
                 </button>
               </div>
             </div>
@@ -732,96 +866,22 @@ function Projects() {
         </div>
       )}
 
-      {/* Edit Member Modal */}
-      {showEditMemberModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Edit Member Role</h2>
-              <button
-                onClick={() => {
-                  setShowEditMemberModal(false);
-                  setEditingMember(null);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleUpdateMember} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  User Type
-                </label>
-                <select
-                  value={formData.userType}
-                  onChange={(e) => setFormData({ ...formData, userType: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="client">Client</option>
-                  <option value="employee">Employee</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Role
-                </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  {formData.userType === 'client' ? (
-                    <>
-                      <option value="client">Client</option>
-                      <option value="head">Client Head</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="employee">Employee</option>
-                      <option value="manager">Project Manager</option>
-                    </>
-                  )}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditMemberModal(false);
-                    setEditingMember(null);
-                  }}
-                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Update Role
-                </button>
-              </div>
-            </form>
+      {/* Notification Toast */}
+      {notification.show && (
+        <div className={`fixed bottom-4 right-4 p-4 rounded-xl shadow-lg transition-all transform duration-300 ${
+          notification.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        }`}>
+          <div className="flex items-center space-x-2 text-white">
+            {notification.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+            <p>{notification.message}</p>
           </div>
-    </div>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
