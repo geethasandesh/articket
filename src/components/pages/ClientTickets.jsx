@@ -16,7 +16,10 @@ const ClientTickets = ({ setActiveTab }) => {
   const [filterPriority, setFilterPriority] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
-  const [filterRaisedBy, setFilterRaisedBy] = useState('all');
+  const [filterRaisedByEmployee, setFilterRaisedByEmployee] = useState('all');
+  const [filterRaisedByClient, setFilterRaisedByClient] = useState('all');
+  const [employees, setEmployees] = useState([]);
+  const [clients, setClients] = useState([]);
   const [currentUserEmail, setCurrentUserEmail] = useState('');
  
   useEffect(() => {
@@ -33,7 +36,8 @@ const ClientTickets = ({ setActiveTab }) => {
             const parsedFilter = JSON.parse(filterData);
             setFilterStatus(parsedFilter.status);
             setFilterPriority(parsedFilter.priority);
-            setFilterRaisedBy(parsedFilter.raisedBy);
+            setFilterRaisedByEmployee(parsedFilter.raisedByEmployee);
+            setFilterRaisedByClient(parsedFilter.raisedByClient);
             // Clear the filter data after applying it
             sessionStorage.removeItem('ticketFilter');
           }
@@ -60,55 +64,96 @@ const ClientTickets = ({ setActiveTab }) => {
           setUserProject('General');
         }
  
-        // Fetch team members for the current project
+        // Fetch employees and clients separately
         try {
-          const teamMembersQuery = query(
-            collection(db, 'users'),
-            where('project', '==', currentProject)
+          const usersRef = collection(db, 'users');
+          
+          // Fetch employees
+          const employeesQuery = query(
+            usersRef,
+            where('project', '==', currentProject),
+            where('role', '==', 'employee')
           );
-          const teamMembersSnapshot = await getDocs(teamMembersQuery);
-          const members = [];
-          const seenEmails = new Set(); // To track unique emails
-          const nameCounts = {}; // To track how many times each name appears
-         
-          teamMembersSnapshot.forEach((doc) => {
-            const memberData = doc.data();
-            // Skip the current user from the team members list
-            if (memberData.email !== user.email && !seenEmails.has(memberData.email)) {
-              seenEmails.add(memberData.email);
-             
-              const displayName = memberData.firstName && memberData.lastName
-                ? `${memberData.firstName} ${memberData.lastName}`.trim()
-                : memberData.email.split('@')[0];
-             
-              // Count occurrences of this name
-              nameCounts[displayName] = (nameCounts[displayName] || 0) + 1;
-             
-              members.push({
+          const employeesSnapshot = await getDocs(employeesQuery);
+          const employeesList = [];
+          const employeeEmails = new Set();
+          const employeeNameCounts = {};
+
+          employeesSnapshot.forEach((doc) => {
+            const userData = doc.data();
+            if (userData.email !== user.email && !employeeEmails.has(userData.email)) {
+              employeeEmails.add(userData.email);
+              
+              const displayName = userData.firstName && userData.lastName
+                ? `${userData.firstName} ${userData.lastName}`.trim()
+                : userData.email.split('@')[0];
+              
+              employeeNameCounts[displayName] = (employeeNameCounts[displayName] || 0) + 1;
+              
+              employeesList.push({
                 id: doc.id,
-                email: memberData.email,
-                name: displayName,
-                role: memberData.role || 'Unknown'
+                email: userData.email,
+                name: displayName
               });
             }
           });
-         
-          // Update display names to include email part if there are duplicates
-          members.forEach(member => {
-            if (nameCounts[member.name] > 1) {
-              const emailPart = member.email.split('@')[0];
-              member.displayName = `${member.name} (${emailPart})`;
+
+          employeesList.sort((a, b) => a.name.localeCompare(b.name));
+          employeesList.forEach(emp => {
+            if (employeeNameCounts[emp.name] > 1) {
+              const emailPart = emp.email.split('@')[0];
+              emp.displayName = `${emp.name} (${emailPart})`;
             } else {
-              member.displayName = member.name;
+              emp.displayName = emp.name;
             }
           });
-         
-          setTeamMembers(members);
-          console.log('Fetched team members:', members);
-          console.log('Name counts:', nameCounts);
+          setEmployees(employeesList);
+
+          // Fetch clients
+          const clientsQuery = query(
+            usersRef,
+            where('project', '==', currentProject),
+            where('role', '==', 'client')
+          );
+          const clientsSnapshot = await getDocs(clientsQuery);
+          const clientsList = [];
+          const clientEmails = new Set();
+          const clientNameCounts = {};
+
+          clientsSnapshot.forEach((doc) => {
+            const userData = doc.data();
+            if (userData.email !== user.email && !clientEmails.has(userData.email)) {
+              clientEmails.add(userData.email);
+              
+              const displayName = userData.firstName && userData.lastName
+                ? `${userData.firstName} ${userData.lastName}`.trim()
+                : userData.email.split('@')[0];
+              
+              clientNameCounts[displayName] = (clientNameCounts[displayName] || 0) + 1;
+              
+              clientsList.push({
+                id: doc.id,
+                email: userData.email,
+                name: displayName
+              });
+            }
+          });
+
+          clientsList.sort((a, b) => a.name.localeCompare(b.name));
+          clientsList.forEach(client => {
+            if (clientNameCounts[client.name] > 1) {
+              const emailPart = client.email.split('@')[0];
+              client.displayName = `${client.name} (${emailPart})`;
+            } else {
+              client.displayName = client.name;
+            }
+          });
+          setClients(clientsList);
+
+          console.log('Fetched employees:', employeesList);
+          console.log('Fetched clients:', clientsList);
         } catch (err) {
-          console.error('Error fetching team members:', err);
-          // Continue without team members if there's an error
+          console.error('Error fetching users:', err);
         }
  
         const ticketsCollectionRef = collection(db, 'tickets');
@@ -138,7 +183,8 @@ const ClientTickets = ({ setActiveTab }) => {
         setLoading(false);
         setTicketsData([]);
         setUserProject(null);
-        setTeamMembers([]);
+        setEmployees([]);
+        setClients([]);
       }
     });
  
@@ -160,19 +206,25 @@ const ClientTickets = ({ setActiveTab }) => {
     const matchesSearch =
       ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ticket.id?.toLowerCase().includes(searchTerm.toLowerCase());
-   
-    // Filter by who raised the ticket
+    
+    // Check both employee and client filters
     let matchesRaisedBy = true;
-    if (filterRaisedBy === 'me') {
-      matchesRaisedBy = ticket.email === currentUserEmail;
-    } else if (filterRaisedBy !== 'all') {
-      // Find the selected team member's email
-      const selectedMember = teamMembers.find(member => member.id === filterRaisedBy);
-      if (selectedMember) {
-        matchesRaisedBy = ticket.email === selectedMember.email;
-      }
+    const ticketUser = employees.find(emp => emp.email === ticket.email) 
+      ? 'employee' 
+      : clients.find(client => client.email === ticket.email) 
+        ? 'client' 
+        : null;
+
+    if (ticketUser === 'employee') {
+      matchesRaisedBy = filterRaisedByEmployee === 'all' || 
+        (filterRaisedByEmployee === 'me' && ticket.email === currentUserEmail) ||
+        employees.find(emp => emp.id === filterRaisedByEmployee)?.email === ticket.email;
+    } else if (ticketUser === 'client') {
+      matchesRaisedBy = filterRaisedByClient === 'all' ||
+        (filterRaisedByClient === 'me' && ticket.email === currentUserEmail) ||
+        clients.find(client => client.id === filterRaisedByClient)?.email === ticket.email;
     }
-   
+    
     return matchesStatus && matchesPriority && matchesSearch && matchesRaisedBy;
   });
  
@@ -232,7 +284,7 @@ const ClientTickets = ({ setActiveTab }) => {
         )}
       </div>
  
-      {/* Filters Bar */}
+      {/* Updated Filters Bar */}
       <div className="flex flex-wrap items-center gap-4 mb-6 bg-white p-4 rounded-xl shadow border border-gray-100">
         <div>
           <label className="text-xs font-semibold text-gray-500 mr-2">Status</label>
@@ -262,17 +314,39 @@ const ClientTickets = ({ setActiveTab }) => {
           </select>
         </div>
         <div>
-          <label className="text-xs font-semibold text-gray-500 mr-2">Raised By</label>
+          <label className="text-xs font-semibold text-gray-500 mr-2">Raised By Employee</label>
           <select
-            value={filterRaisedBy}
-            onChange={e => setFilterRaisedBy(e.target.value)}
+            value={filterRaisedByEmployee}
+            onChange={e => {
+              setFilterRaisedByEmployee(e.target.value);
+              setFilterRaisedByClient('all'); // Reset client filter when employee filter changes
+            }}
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 min-w-[140px]"
           >
-            <option value="all">All team members</option>
-            <option value="me">Raised by me</option>
-            {teamMembers.map(member => (
-              <option key={member.id} value={member.id}>
-                {member.displayName}
+            <option value="all">All Employees</option>
+            <option value="me">Me</option>
+            {employees.map(employee => (
+              <option key={employee.id} value={employee.id}>
+                {employee.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 mr-2">Raised By Client</label>
+          <select
+            value={filterRaisedByClient}
+            onChange={e => {
+              setFilterRaisedByClient(e.target.value);
+              setFilterRaisedByEmployee('all'); // Reset employee filter when client filter changes
+            }}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 min-w-[140px]"
+          >
+            <option value="all">All Clients</option>
+            <option value="me">Me</option>
+            {clients.map(client => (
+              <option key={client.id} value={client.id}>
+                {client.displayName}
               </option>
             ))}
           </select>
@@ -290,7 +364,8 @@ const ClientTickets = ({ setActiveTab }) => {
           onClick={() => {
             setFilterStatus('All');
             setFilterPriority('All');
-            setFilterRaisedBy('all');
+            setFilterRaisedByEmployee('all');
+            setFilterRaisedByClient('all');
             setSearchTerm('');
           }}
           className="ml-auto text-xs text-blue-600 hover:underline px-2 py-1 rounded"
@@ -354,7 +429,9 @@ const ClientTickets = ({ setActiveTab }) => {
                       {ticket.email === currentUserEmail ? (
                         <span className="text-blue-600 font-medium">Me</span>
                       ) : (
-                        teamMembers.find(member => member.email === ticket.email)?.name || ticket.email
+                        employees.find(emp => emp.email === ticket.email)?.name ||
+                        clients.find(client => client.email === ticket.email)?.name ||
+                        ticket.email
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
