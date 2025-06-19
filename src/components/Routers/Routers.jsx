@@ -10,7 +10,12 @@ import Register from '../Register';
 import AdminTickets from '../pages/AdminTickets';
 import PropTypes from 'prop-types';
 import Forgot from '../pages/ForgotPassword';
- 
+import Projects from "../pages/Projects";
+import TicketDetails from "../pages/TicketDetails";
+import Ticketing from "../pages/Ticketing";
+import ProjectManagerDashboard from "../pages/ProjectManagerDashboard";
+import ClientHeadDashboard from "../pages/ClientHeadDashboard";
+import EmployeeTickets from "../pages/EmployeeTickets";
  
 import { auth, db } from '../../firebase/config';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -126,62 +131,20 @@ function Routers() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/admin" element={<Admin />} />
+      <Route path="/admin-tickets" element={<AdminTickets />} />
+      <Route path="/clientdashboard" element={<ClientDashboard />} />
+      <Route path="/client-tickets" element={<ClientTickets />} />
+      <Route path="/employeedashboard" element={<EmployeeDashboard />} />
+      <Route path="/employee-tickets" element={<EmployeeTickets />} />
       <Route path="/forgot-password" element={<Forgot />} />
-      <Route
-        path="/employeedashboard"
-        element={
-          <ProtectedRoute>
-            <EmployeeRoute>
-              <EmployeeDashboard />
-            </EmployeeRoute>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/ticketing"
-        element={
-          <ProtectedRoute>
-            <Client />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute>
-            <AdminRoute>
-              <Admin />
-            </AdminRoute>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/clientdashboard"
-        element={
-          <ProtectedRoute>
-            <ClientDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admintickets"
-        element={
-          <ProtectedRoute>
-            <AdminRoute>
-              <AdminTickets />
-            </AdminRoute>
-          </ProtectedRoute>
-        }
-        />
-      <Route
-        path="/client-tickets"
-        element={
-          <ProtectedRoute>
-            <ClientTickets />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/projects" element={<Projects />} />
+      <Route path="/ticket/:id" element={<TicketDetails />} />
+      <Route path="/ticketing" element={<Ticketing />} />
+      <Route path="/project-manager-dashboard" element={<ProjectManagerDashboard />} />
+      <Route path="/client-head-dashboard" element={<ClientHeadDashboard />} />
     </Routes>
   );
 }

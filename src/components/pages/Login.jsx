@@ -126,6 +126,12 @@ const Login = () => {
         case 'client':
           navigate("/clientdashboard");
           break;
+        case 'project_manager':
+          navigate("/project-manager-dashboard");
+          break;
+        case 'client_head':
+          navigate("/client-head-dashboard");
+          break;
         default:
           navigate("/access-denied");
       }

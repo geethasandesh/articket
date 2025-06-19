@@ -297,7 +297,7 @@ const ClientTickets = ({ setActiveTab }) => {
         >
           Clear Filters
         </button>
-      </div>
+      </div> 
       {filteredTickets.length > 0 ? (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <div className="overflow-x-auto">
