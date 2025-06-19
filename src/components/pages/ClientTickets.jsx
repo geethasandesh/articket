@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BsTicketFill, BsFolderFill } from 'react-icons/bs';
 import TicketDetails from './TicketDetails';
  
-const ClientTickets = () => {
+const ClientTickets = ({ setActiveTab }) => {
   const [ticketsData, setTicketsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,7 +59,7 @@ const ClientTickets = () => {
           setError('Failed to load user project.');
           setUserProject('General');
         }
-
+ 
         // Fetch team members for the current project
         try {
           const teamMembersQuery = query(
@@ -70,20 +70,20 @@ const ClientTickets = () => {
           const members = [];
           const seenEmails = new Set(); // To track unique emails
           const nameCounts = {}; // To track how many times each name appears
-          
+         
           teamMembersSnapshot.forEach((doc) => {
             const memberData = doc.data();
             // Skip the current user from the team members list
             if (memberData.email !== user.email && !seenEmails.has(memberData.email)) {
               seenEmails.add(memberData.email);
-              
-              const displayName = memberData.firstName && memberData.lastName 
+             
+              const displayName = memberData.firstName && memberData.lastName
                 ? `${memberData.firstName} ${memberData.lastName}`.trim()
                 : memberData.email.split('@')[0];
-              
+             
               // Count occurrences of this name
               nameCounts[displayName] = (nameCounts[displayName] || 0) + 1;
-              
+             
               members.push({
                 id: doc.id,
                 email: memberData.email,
@@ -92,7 +92,7 @@ const ClientTickets = () => {
               });
             }
           });
-          
+         
           // Update display names to include email part if there are duplicates
           members.forEach(member => {
             if (nameCounts[member.name] > 1) {
@@ -102,7 +102,7 @@ const ClientTickets = () => {
               member.displayName = member.name;
             }
           });
-          
+         
           setTeamMembers(members);
           console.log('Fetched team members:', members);
           console.log('Name counts:', nameCounts);
@@ -160,7 +160,7 @@ const ClientTickets = () => {
     const matchesSearch =
       ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ticket.id?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+   
     // Filter by who raised the ticket
     let matchesRaisedBy = true;
     if (filterRaisedBy === 'me') {
@@ -172,7 +172,7 @@ const ClientTickets = () => {
         matchesRaisedBy = ticket.email === selectedMember.email;
       }
     }
-    
+   
     return matchesStatus && matchesPriority && matchesSearch && matchesRaisedBy;
   });
  
@@ -213,13 +213,23 @@ const ClientTickets = () => {
             <p className="text-gray-600 mt-2">Project: {userProject}</p>
           )}
         </div>
-        <Link
-          to="/client-dashboard?tab=create"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 flex items-center"
-        >
-          <BsFolderFill className="mr-2" />
-          Create New Ticket
-        </Link>
+        {setActiveTab ? (
+          <button
+            onClick={() => setActiveTab('create')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 flex items-center"
+          >
+            <BsFolderFill className="mr-2" />
+            Create New Ticket
+          </button>
+        ) : (
+          <Link
+            to="/client-dashboard?tab=create"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 flex items-center"
+          >
+            <BsFolderFill className="mr-2" />
+            Create New Ticket
+          </Link>
+        )}
       </div>
  
       {/* Filters Bar */}
@@ -277,11 +287,11 @@ const ClientTickets = () => {
           />
         </div>
         <button
-          onClick={() => { 
-            setFilterStatus('All'); 
-            setFilterPriority('All'); 
+          onClick={() => {
+            setFilterStatus('All');
+            setFilterPriority('All');
             setFilterRaisedBy('all');
-            setSearchTerm(''); 
+            setSearchTerm('');
           }}
           className="ml-auto text-xs text-blue-600 hover:underline px-2 py-1 rounded"
         >
@@ -380,4 +390,5 @@ const ClientTickets = () => {
 };
  
 export default ClientTickets;
+ 
  

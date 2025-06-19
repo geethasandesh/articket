@@ -47,6 +47,31 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
  
+// Animated count-up hook
+function useCountUp(target, duration = 1200) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const startTime = performance.now();
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+    function animate(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutCubic(progress);
+      setCount(Math.round(eased * target));
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setCount(target);
+      }
+    }
+    requestAnimationFrame(animate);
+    // eslint-disable-next-line
+  }, [target, duration]);
+  return count;
+}
+ 
 function ClientDashboard() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -70,8 +95,10 @@ function ClientDashboard() {
   const messagesContainerRef = useRef(null);
   const unsubscribeRef = useRef(null);
  
-  // Mock data for demonstration
-  
+  // Animated counts for priorities (must be at top level, not inside JSX)
+  const highCount = useCountUp(tickets.filter(t => t.priority === 'High').length);
+  const mediumCount = useCountUp(tickets.filter(t => t.priority === 'Medium').length);
+  const lowCount = useCountUp(tickets.filter(t => t.priority === 'Low').length);
  
   const setupTicketListener = () => {
     try {
@@ -127,7 +154,8 @@ function ClientDashboard() {
                   customerResponses: data.customerResponses || [],
                   customer: data.customer || 'Unknown',
                   project: data.project || 'General',
-                  email: data.email || 'Unknown'
+                  email: data.email || 'Unknown',
+                  priority: data.priority || 'Low'
                 });
               });
              
@@ -348,8 +376,7 @@ function ClientDashboard() {
     { id: 'dashboard', label: 'Dashboard', icon: Home, active: activeTab === 'dashboard' },
     { id: 'tickets', label: 'My Tickets', icon: FileText, active: activeTab === 'tickets' },
     { id: 'create', label: 'Create Ticket', icon: Plus, active: activeTab === 'create' },
-    { id: 'notifications', label: 'Notifications', icon: Bell, active: activeTab === 'notifications' },
-    { id: 'settings', label: 'Settings', icon: Settings, active: activeTab === 'settings' }
+    
   ];
  
   const renderSidebarItem = (item) => {
@@ -498,10 +525,7 @@ function ClientDashboard() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative">
-                <Bell className="w-6 h-6 text-gray-600" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-              </button>
+              
               <button
                 onClick={handleLogout}
                 className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
@@ -661,29 +685,49 @@ function ClientDashboard() {
                   </div>
                 </div>
 
-                {/* Priority Distribution Line Chart */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                {/* Priority Counts Cards */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                    <Activity className="w-5 h-5 mr-2 text-blue-600" />
-                    Priority Distribution
+                    <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
+                    Ticket Priority Counts
                   </h3>
-                  <div className="h-64 bg-gray-50 rounded-lg p-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={[
-                          { name: 'High', value: tickets.filter(t => t.priority === 'High').length },
-                          { name: 'Medium', value: tickets.filter(t => t.priority === 'Medium').length },
-                          { name: 'Low', value: tickets.filter(t => t.priority === 'Low').length }
-                        ]}
-                        margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 14 }} axisLine={false} tickLine={false} />
-                        <YAxis allowDecimals={false} tick={{ fill: '#64748b', fontSize: 14 }} axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', color: '#334155' }} />
-                        <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={3} dot={{ r: 6, fill: '#2563eb', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                  <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
+                    <div className="flex-1 bg-red-50 border border-red-200 rounded-xl p-6 flex flex-col items-center shadow-sm cursor-pointer hover:shadow-md transition" onClick={() => {
+                      setActiveTab('tickets');
+                      sessionStorage.setItem('ticketFilter', JSON.stringify({
+                        status: 'All',
+                        priority: 'High',
+                        raisedBy: 'all'
+                      }));
+                    }}>
+                      <Flag className="w-8 h-8 text-red-500 mb-2" />
+                      <span className="text-2xl font-bold text-red-600">{highCount}</span>
+                      <span className="text-sm font-medium text-red-700 mt-1">High Priority</span>
+                    </div>
+                    <div className="flex-1 bg-yellow-50 border border-yellow-200 rounded-xl p-6 flex flex-col items-center shadow-sm cursor-pointer hover:shadow-md transition" onClick={() => {
+                      setActiveTab('tickets');
+                      sessionStorage.setItem('ticketFilter', JSON.stringify({
+                        status: 'All',
+                        priority: 'Medium',
+                        raisedBy: 'all'
+                      }));
+                    }}>
+                      <Flag className="w-8 h-8 text-yellow-500 mb-2" />
+                      <span className="text-2xl font-bold text-yellow-600">{mediumCount}</span>
+                      <span className="text-sm font-medium text-yellow-700 mt-1">Medium Priority</span>
+                    </div>
+                    <div className="flex-1 bg-green-50 border border-green-200 rounded-xl p-6 flex flex-col items-center shadow-sm cursor-pointer hover:shadow-md transition" onClick={() => {
+                      setActiveTab('tickets');
+                      sessionStorage.setItem('ticketFilter', JSON.stringify({
+                        status: 'All',
+                        priority: 'Low',
+                        raisedBy: 'all'
+                      }));
+                    }}>
+                      <Flag className="w-8 h-8 text-green-500 mb-2" />
+                      <span className="text-2xl font-bold text-green-600">{lowCount}</span>
+                      <span className="text-sm font-medium text-green-700 mt-1">Low Priority</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -728,7 +772,7 @@ function ClientDashboard() {
             </div>
           )}
  
-          {activeTab === 'tickets' && <ClientTickets />}
+ {activeTab === 'tickets' && <ClientTickets setActiveTab={setActiveTab} />}
  
           {activeTab === 'create' && (
             <div className="max-w-auto mx-auto">

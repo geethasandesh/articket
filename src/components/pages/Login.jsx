@@ -142,7 +142,7 @@ const Login = () => {
  
   return (
     <div className="min-h-screen flex bg-gray-50">
-      {/* Left side - Login Form */}
+      {/* Left side - Centered Login Form */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div>
@@ -231,7 +231,7 @@ const Login = () => {
  
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <Link to="/register" className="font-medium text-orange-500 hover:text-orange-400">
                 Register
               </Link>
@@ -239,14 +239,11 @@ const Login = () => {
           </div>
         </div>
       </div>
- 
-      {/* Right side - Image */}
-      <div className="hidden lg:block relative w-0 flex-1">
-        <img
-          className="absolute inset-0 h-full w-full object-cover"
-          src={artihcusLogo}
-          alt="Artihcus Logo"
-        />
+      {/* Right side - White background with Centered Logo and Simple Design */}
+      <div className="hidden lg:flex relative w-0 flex-1 items-center justify-center bg-white border-l border-gray-200 shadow-lg">
+        <div className="flex flex-col items-center justify-center w-full h-full">
+          <img src={artihcusLogo} alt="Artihcus Logo" className="h-32 w-auto drop-shadow-lg rounded-xl border border-white/30 bg-white/10 p-4" />
+        </div>
       </div>
     </div>
   );
