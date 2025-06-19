@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from "firebase/auth";
 import { getFirestore, collection, query, where, getDocs, updateDoc, deleteField, doc, setDoc, deleteDoc } from "firebase/firestore";
-import artihcusLogo from '../../assets/Articket-Logo.png';
+import artihcusLogo from '../../assets/artihcus-logo1.svg';
  
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -11,6 +11,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const auth = getAuth();
   const db = getFirestore();
  
@@ -114,7 +115,13 @@ const Login = () => {
         project: userData.project || null
       }));
  
-      // 🚀 Redirect based on role
+      // 🚀 Redirect based on role or redirect param
+      const params = new URLSearchParams(location.search);
+      const redirect = params.get('redirect');
+      if (redirect) {
+        navigate(redirect, { replace: true });
+        return;
+      }
       const role = userData.role?.toLowerCase();
       switch (role) {
         case 'admin':
@@ -158,7 +165,7 @@ const Login = () => {
           </h2>
           <p className="text-gray-600 mb-8">
             Simplify your workflow and boost your productivity<br />
-            with Artihcus. <span className="text-orange-500 font-medium">Get started </span>
+            with Artihcus. <span className="text-orange-500 font-medium">Get started ..</span>
           </p>
         </div>
  
@@ -250,3 +257,4 @@ const Login = () => {
 };
  
 export default Login;
+ 

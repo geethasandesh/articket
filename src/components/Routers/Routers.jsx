@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Client from '../pages/Ticketing';
 import Admin from "../pages/Admin";
 import ClientDashboard from '../pages/ClientDashboard';
@@ -26,6 +26,7 @@ import { query, collection, where, getDocs } from 'firebase/firestore';
 function ProtectedRoute({ children }) {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
+  const location = useLocation();
  
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -41,7 +42,8 @@ function ProtectedRoute({ children }) {
   }
  
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    // Redirect to login with intended path
+    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   }
  
   return children;
@@ -152,7 +154,3 @@ function Routers() {
 }
  
 export default Routers;
- 
- 
- 
- 
