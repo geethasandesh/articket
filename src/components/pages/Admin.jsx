@@ -724,10 +724,7 @@ function Admin() {
                 </div>
               </div>
               <div className="flex items-center space-x-4">
-                <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative">
-                  <Bell className="w-6 h-6 text-gray-600" />
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-                </button>
+                
                 <button
                   onClick={handleLogout}
                   className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"

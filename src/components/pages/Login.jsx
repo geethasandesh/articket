@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from "firebase/auth";
 import { getFirestore, collection, query, where, getDocs, updateDoc, deleteField, doc, setDoc, deleteDoc } from "firebase/firestore";
-import artihcusLogo from '../../assets/artihcus-logo1.svg';
+import artihcusLogo from '../../assets/Articket-logo.png';
  
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -158,7 +158,7 @@ const Login = () => {
           </h2>
           <p className="text-gray-600 mb-8">
             Simplify your workflow and boost your productivity<br />
-            with Artihcus. <span className="text-orange-500 font-medium">Get started ..</span>
+            with Artihcus. <span className="text-orange-500 font-medium">Get started </span>
           </p>
         </div>
  
