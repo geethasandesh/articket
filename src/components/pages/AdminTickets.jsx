@@ -17,7 +17,10 @@ import {
   DownloadCloud,
   Filter,
   Trash2,
-  Search
+  Search,
+  FolderKanban,
+  AlertCircle,
+  FolderOpen
 } from 'lucide-react';
 import { serverTimestamp, updateDoc, doc, onSnapshot, collection, query, orderBy, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -249,7 +252,7 @@ function AdminTickets() {
           {/* Status Filter */}
           <select
             value={filters.status}
-            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value, applied: true }))}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">All Statuses</option>
@@ -261,7 +264,7 @@ function AdminTickets() {
           {/* Priority Filter */}
           <select
             value={filters.priority}
-            onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value, applied: true }))}
+            onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">All Priorities</option>
@@ -273,7 +276,7 @@ function AdminTickets() {
           {/* Project Filter */}
           <select
             value={filters.project}
-            onChange={(e) => setFilters(prev => ({ ...prev, project: e.target.value, applied: true }))}
+            onChange={(e) => setFilters(prev => ({ ...prev, project: e.target.value }))}
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">All Projects</option>
@@ -283,17 +286,18 @@ function AdminTickets() {
           </select>
         </div>
  
-        {/* Filter Actions */}
-        {(filters.applied || searchTerm) && (
-          <div className="mt-4 flex items-center justify-end space-x-3">
+        {/* Search Button */}
+        <div className="mt-4 flex items-center justify-end space-x-3">
+          <button
+            onClick={() => setFilters(prev => ({ ...prev, applied: true }))}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            <Search className="w-4 h-4 inline-block mr-1" /> Search
+          </button>
+          {(filters.applied || searchTerm) && (
             <button
               onClick={() => {
-                setFilters({
-                  priority: '',
-                  status: '',
-                  project: '',
-                  applied: false
-                });
+                setFilters({ priority: '', status: '', project: '', applied: false });
                 setSearchTerm('');
               }}
               className="px-3 py-1.5 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2 text-sm"
@@ -301,12 +305,20 @@ function AdminTickets() {
               <X className="w-4 h-4" />
               <span>Clear All Filters</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
  
       {/* Tickets Grid */}
-      {loading ? (
+      {!filters.applied ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+          <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <Filter className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Set filters and click Search to view tickets</h3>
+          <p className="text-gray-600">Please select your filter criteria and click the Search button to display tickets.</p>
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
         </div>
@@ -430,24 +442,24 @@ function AdminTickets() {
       )}
  
       {/* Edit Ticket Modal */}
-      {showEditModal && (
+      {showEditModal && selectedTicket && (
         <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
           {/* Glossy Backdrop */}
           <div className="absolute inset-0 bg-gradient-to-br from-white-500/30 to-white-500/30 backdrop-blur-md"></div>
-         
           {/* Modal Content */}
-          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
-            <div className="relative p-6">
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl w-full max-w-lg border border-white/20">
+            <div className="relative p-8">
               {/* Decorative Elements */}
               <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-2xl pointer-events-none">
                 <div className="absolute -top-32 -left-32 w-64 h-64 bg-blue-500 rounded-full opacity-10 blur-3xl"></div>
                 <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-purple-500 rounded-full opacity-10 blur-3xl"></div>
               </div>
- 
               {/* Modal Header */}
               <div className="flex justify-between items-center mb-6 relative">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-900">Edit Ticket</h3>
+                  <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <Edit2 className="w-6 h-6 text-blue-600" /> Edit Ticket
+                  </h3>
                   <p className="text-sm text-gray-600 mt-1">Update ticket details</p>
                 </div>
                 <button
@@ -457,11 +469,36 @@ function AdminTickets() {
                   <X className="w-6 h-6" />
                 </button>
               </div>
- 
+              {/* Ticket Summary */}
+              <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 flex items-center gap-6 border border-blue-100 shadow-sm">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-sm text-gray-700 mb-1">
+                    <span className="font-semibold">Ticket #</span>
+                    <span className="text-blue-600">{selectedTicket.id.slice(-6).toUpperCase()}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <User className="w-4 h-4 mr-1 inline-block" /> {selectedTicket.createdBy}
+                    <Mail className="w-4 h-4 mr-1 inline-block" /> {selectedTicket.email}
+                    <Clock className="w-4 h-4 mr-1 inline-block" /> {selectedTicket.created?.seconds ? new Date(selectedTicket.created.seconds * 1000).toLocaleString() : 'N/A'}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${getPriorityColor(selectedTicket.priority)} bg-gray-100`}>{selectedTicket.priority}</span>
+                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                    selectedTicket.status === 'Open' ? 'bg-green-100 text-green-800' :
+                    selectedTicket.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                    selectedTicket.status === 'Resolved' ? 'bg-purple-100 text-purple-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>{selectedTicket.status}</span>
+                </div>
+              </div>
+              <hr className="my-4 border-blue-100" />
               {/* Edit Form */}
-              <form onSubmit={handleUpdateTicket} className="space-y-4 relative">
+              <form onSubmit={handleUpdateTicket} className="space-y-5 relative">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                    <FolderKanban className="w-4 h-4 text-blue-400" /> Status
+                  </label>
                   <select
                     value={editFormData.status}
                     onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
@@ -472,35 +509,38 @@ function AdminTickets() {
                     ))}
                   </select>
                 </div>
- 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4 text-yellow-400" /> Priority
+                  </label>
                   <select
                     value={editFormData.priority}
                     onChange={(e) => setEditFormData({ ...editFormData, priority: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors"
                   >
                     {priorities.map((priority) => (
                       <option key={priority.value} value={priority.value}>{priority.value}</option>
                     ))}
                   </select>
                 </div>
- 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                    <FolderOpen className="w-4 h-4 text-purple-400" /> Category
+                  </label>
                   <select
                     value={editFormData.category}
                     onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
                   >
                     {categories.map((category) => (
                       <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
                 </div>
- 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                    <FileText className="w-4 h-4 text-blue-500" /> Subject
+                  </label>
                   <input
                     type="text"
                     value={editFormData.subject}
@@ -508,9 +548,10 @@ function AdminTickets() {
                     className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
- 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                    <FileText className="w-4 h-4 text-blue-500" /> Description
+                  </label>
                   <textarea
                     value={editFormData.description}
                     onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
@@ -518,7 +559,6 @@ function AdminTickets() {
                     className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
                   />
                 </div>
- 
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
@@ -544,3 +584,7 @@ function AdminTickets() {
 }
  
 export default AdminTickets;
+ 
+ 
+ 
+ 

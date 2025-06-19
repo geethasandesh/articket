@@ -3,27 +3,18 @@ import {
   Send,
   Paperclip,
   CheckCircle,
-  User,
-  Mail,
-  Building,
   File,
   FileText,
   Image,
   Video,
   Loader2,
   X,
-  Ticket,
   AlertCircle,
-  Clock,
-  Star,
-  Zap,
-  ChevronRight,
-  MessageSquare,
-  Tag,
-  Sparkles
+  ChevronRight
 } from 'lucide-react';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase/config';
+import { sendEmail } from '../../utils/sendEmail';
  
 function Client() {
   const [formData, setFormData] = useState({
@@ -46,12 +37,6 @@ function Client() {
   const [currentStep, setCurrentStep] = useState(1);
   const fileInputRef = useRef(null);
   const [previewFile, setPreviewFile] = useState(null);
- 
-  const projects = [
-    "Daikin",
-    "VMM",
-    "Danfoss"
-  ];
  
   const priorities = [
     { value: 'Low', color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200', description: 'Non-urgent, can wait', icon: '🟢' },
@@ -252,6 +237,26 @@ function Client() {
       await updateDoc(docRef, {
         ticketId: docRef.id
       });
+
+      // Fetch project members' emails
+      const memberEmails = await fetchProjectMemberEmails(ticketData.project);
+      // Prepare email parameters for EmailJS
+      const emailParams = {
+        to_email: memberEmails.join(','),
+        from_name: 'Articket Support',
+        reply_to: ticketData.email,
+        subject: ticketData.subject,
+        name: ticketData.customer,
+        email: ticketData.email,
+        project: ticketData.project,
+        category: ticketData.category,
+        priority: ticketData.priority,
+        description: ticketData.description,
+        attachments: ticketData.attachments?.map(a => a.name).join(', '),
+        ticket_link: `https://articket.vercel.app/tickets/${docRef.id}`
+      };
+      console.log('Email params:', emailParams);
+      await sendEmail(emailParams);
      
       setIsSubmitting(false);
       setSubmitSuccess(true);
@@ -318,6 +323,14 @@ function Client() {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  // Helper to fetch all emails of users in the selected project
+  const fetchProjectMemberEmails = async (projectName) => {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('project', '==', projectName));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data().email).filter(Boolean);
   };
 
   if (isLoading) {

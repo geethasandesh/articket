@@ -16,6 +16,7 @@ import Ticketing from "../pages/Ticketing";
 import ProjectManagerDashboard from "../pages/ProjectManagerDashboard";
 import ClientHeadDashboard from "../pages/ClientHeadDashboard";
 import EmployeeTickets from "../pages/EmployeeTickets";
+import TicketDetailsWrapper from '../pages/TicketDetailsWrapper';
  
 import { auth, db } from '../../firebase/config';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -145,11 +146,13 @@ function Routers() {
       <Route path="/ticketing" element={<Ticketing />} />
       <Route path="/project-manager-dashboard" element={<ProjectManagerDashboard />} />
       <Route path="/client-head-dashboard" element={<ClientHeadDashboard />} />
+      <Route path="/tickets/:ticketId" element={<TicketDetailsWrapper />} />
     </Routes>
   );
 }
  
 export default Routers;
+ 
  
  
  

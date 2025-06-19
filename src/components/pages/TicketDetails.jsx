@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { doc, getDoc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../firebase/config';
 import {
   ArrowLeft,
@@ -19,7 +19,8 @@ import {
   Paperclip,
   Link
 } from 'lucide-react';
- 
+import { sendEmail } from '../../utils/sendEmail';
+
 const TicketDetails = ({ ticketId, onBack }) => {
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,7 +28,7 @@ const TicketDetails = ({ ticketId, onBack }) => {
   const [newResponse, setNewResponse] = useState(''); // New state for comment input
   const [isSendingResponse, setIsSendingResponse] = useState(false);
   const [activeTab, setActiveTab] = useState('Conversations');
- 
+
   useEffect(() => {
     const fetchTicketDetails = async () => {
       if (!ticketId) {
@@ -35,11 +36,11 @@ const TicketDetails = ({ ticketId, onBack }) => {
         setLoading(false);
         return;
       }
- 
+
       try {
         const ticketRef = doc(db, 'tickets', ticketId);
         const ticketSnap = await getDoc(ticketRef);
- 
+
         if (ticketSnap.exists()) {
           setTicket({ id: ticketSnap.id, ...ticketSnap.data() });
           setError(null);
@@ -53,13 +54,13 @@ const TicketDetails = ({ ticketId, onBack }) => {
         setLoading(false);
       }
     };
- 
+
     fetchTicketDetails();
   }, [ticketId]);
- 
+
   const handleAddResponse = async () => {
     if (!newResponse.trim() || !ticketId || !auth.currentUser) return;
- 
+
     setIsSendingResponse(true);
     try {
       const ticketRef = doc(db, 'tickets', ticketId);
@@ -69,18 +70,39 @@ const TicketDetails = ({ ticketId, onBack }) => {
         authorEmail: auth.currentUser.email, // Store the email of the responder
         authorRole: 'client', // Assuming client is responding
       };
- 
+
       await updateDoc(ticketRef, {
         customerResponses: arrayUnion(response), // Add new response to customerResponses array
         lastUpdated: serverTimestamp() // Update last updated timestamp
       });
- 
+
       setNewResponse(''); // Clear input
       // Re-fetch ticket to update UI with new response, or manually add to state
       // For simplicity, let's re-fetch the ticket details to update the UI
       const updatedTicketSnap = await getDoc(ticketRef);
       if (updatedTicketSnap.exists()) {
         setTicket({ id: updatedTicketSnap.id, ...updatedTicketSnap.data() });
+        // Send email notification to project members
+        const updatedTicket = updatedTicketSnap.data();
+        const memberEmails = await fetchProjectMemberEmails(updatedTicket.project);
+        const emailParams = {
+          to_email: memberEmails.join(','),
+          from_name: 'Articket Support',
+          reply_to: auth.currentUser.email, // commenter's email
+          subject: updatedTicket.subject,
+          request_id: ticketId,
+          status: updatedTicket.status,
+          priority: updatedTicket.priority,
+          category: updatedTicket.category,
+          project: updatedTicket.project,
+          assigned_to: updatedTicket.assignedTo || 'Not Assigned',
+          created: updatedTicket.created ? new Date(updatedTicket.created.toDate()).toLocaleString() : '',
+          requester: `${updatedTicket.customer} (${updatedTicket.email})`,
+          description: updatedTicket.description,
+          comment: newResponse.trim(),
+          ticket_link: `https://articket.vercel.app/tickets/${ticketId}`
+        };
+        await sendEmail(emailParams);
       }
     } catch (err) {
       console.error('Error adding response:', err);
@@ -89,7 +111,7 @@ const TicketDetails = ({ ticketId, onBack }) => {
       setIsSendingResponse(false);
     }
   };
- 
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'Open':
@@ -104,7 +126,15 @@ const TicketDetails = ({ ticketId, onBack }) => {
         return 'bg-gray-100 text-gray-800';
     }
   };
- 
+
+  // Helper to fetch all emails of users in the selected project
+  const fetchProjectMemberEmails = async (projectName) => {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('project', '==', projectName));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data().email).filter(Boolean);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-4">
@@ -115,7 +145,7 @@ const TicketDetails = ({ ticketId, onBack }) => {
       </div>
     );
   }
- 
+
   if (error) {
     return (
       <div className="flex items-center justify-center p-4">
@@ -132,7 +162,7 @@ const TicketDetails = ({ ticketId, onBack }) => {
       </div>
     );
   }
- 
+
   if (!ticket) {
     return (
       <div className="flex items-center justify-center p-4">
@@ -149,7 +179,7 @@ const TicketDetails = ({ ticketId, onBack }) => {
       </div>
     );
   }
- 
+
   return (
     <div className="flex flex-col lg:flex-row gap-8">
       {/* Main Content */}
@@ -540,5 +570,5 @@ const TicketDetails = ({ ticketId, onBack }) => {
     </div>
   );
 };
- 
+
 export default TicketDetails;

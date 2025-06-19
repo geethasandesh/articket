@@ -635,29 +635,38 @@ function Projects() {
 
       {/* Add Project Modal */}
       {showAddProjectModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+          {/* Glossy Backdrop */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white-500/30 to-white-500/30 backdrop-blur-md"></div>
+          {/* Modal Content */}
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
+            <div className="relative p-6">
+              {/* Decorative Elements */}
+              <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-2xl pointer-events-none">
+                <div className="absolute -top-32 -left-32 w-64 h-64 bg-blue-500 rounded-full opacity-10 blur-3xl"></div>
+                <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-purple-500 rounded-full opacity-10 blur-3xl"></div>
+              </div>
+              {/* Modal Header */}
+              <div className="flex justify-between items-center mb-6 relative">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">Create New Project</h3>
                   <p className="text-sm text-gray-600 mt-1">Add a new project to your workspace</p>
                 </div>
                 <button
                   onClick={() => setShowAddProjectModal(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100/50 rounded-lg transition-colors relative"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
-              <form onSubmit={handleAddProject} className="space-y-4">
+              <form onSubmit={handleAddProject} className="space-y-4 relative">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     placeholder="Enter project name"
                     required
                   />
@@ -667,23 +676,23 @@ function Projects() {
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     placeholder="Enter project description"
                     rows="3"
                     required
                   />
                 </div>
-                <div className="flex justify-end space-x-3 pt-4">
+                <div className="flex justify-end space-x-3 pt-4 relative">
                   <button
                     type="button"
                     onClick={() => setShowAddProjectModal(false)}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                    className="px-4 py-2 text-gray-700 bg-gray-100/80 backdrop-blur-sm rounded-xl hover:bg-gray-200/80 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-colors"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
                   >
                     Create Project
                   </button>
@@ -878,6 +887,149 @@ function Projects() {
               <AlertTriangle className="w-5 h-5" />
             )}
             <p>{notification.message}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {showEditMemberModal && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+          {/* Glossy Backdrop */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white-500/30 to-white-500/30 backdrop-blur-md"></div>
+          {/* Modal Content */}
+          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl w-full max-w-md border border-white/20">
+            <div className="relative p-6">
+              {/* Decorative Elements */}
+              <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-2xl pointer-events-none">
+                <div className="absolute -top-32 -left-32 w-64 h-64 bg-blue-500 rounded-full opacity-10 blur-3xl"></div>
+                <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-purple-500 rounded-full opacity-10 blur-3xl"></div>
+              </div>
+              {/* Modal Header */}
+              <div className="flex justify-between items-center mb-6 relative">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Edit Member Details</h3>
+                  <p className="text-sm text-gray-600 mt-1">Update the details for this member in {selectedProject?.name}</p>
+                </div>
+                <button
+                  onClick={() => setShowEditMemberModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100/50 rounded-lg transition-colors relative"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              {/* Form */}
+              <form onSubmit={handleUpdateMember} className="space-y-4 relative">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/50 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Enter email address"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Role</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {formData.userType === 'employee' ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, role: 'employee' })}
+                          className={`p-3 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                            formData.role === 'employee'
+                              ? 'border-blue-500 bg-blue-50/50 text-blue-700'
+                              : 'border-gray-200 hover:border-blue-200 bg-white/50'
+                          }`}
+                        >
+                          Regular Employee
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, role: 'manager' })}
+                          className={`p-3 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                            formData.role === 'manager'
+                              ? 'border-blue-500 bg-blue-50/50 text-blue-700'
+                              : 'border-gray-200 hover:border-blue-200 bg-white/50'
+                          }`}
+                        >
+                          Project Manager
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, role: 'client' })}
+                          className={`p-3 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                            formData.role === 'client'
+                              ? 'border-purple-500 bg-purple-50/50 text-purple-700'
+                              : 'border-gray-200 hover:border-purple-200 bg-white/50'
+                          }`}
+                        >
+                          Regular Client
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, role: 'head' })}
+                          className={`p-3 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                            formData.role === 'head'
+                              ? 'border-purple-500 bg-purple-50/50 text-purple-700'
+                              : 'border-gray-200 hover:border-purple-200 bg-white/50'
+                          }`}
+                        >
+                          Client Head
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Member Type</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, userType: 'employee' })}
+                      className={`p-3 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                        formData.userType === 'employee'
+                          ? 'border-blue-500 bg-blue-50/50 text-blue-700'
+                          : 'border-gray-200 hover:border-blue-200 bg-white/50'
+                      }`}
+                    >
+                      Employee
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, userType: 'client' })}
+                      className={`p-3 rounded-xl border-2 transition-all duration-200 backdrop-blur-sm ${
+                        formData.userType === 'client'
+                          ? 'border-purple-500 bg-purple-50/50 text-purple-700'
+                          : 'border-gray-200 hover:border-purple-200 bg-white/50'
+                      }`}
+                    >
+                      Client
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-3 pt-4 relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditMemberModal(false)}
+                    className="px-4 py-2 text-gray-700 bg-gray-100/80 backdrop-blur-sm rounded-xl hover:bg-gray-200/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
