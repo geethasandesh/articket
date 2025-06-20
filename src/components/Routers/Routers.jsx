@@ -6,7 +6,7 @@ import ClientDashboard from '../pages/ClientDashboard';
 import ClientTickets from '../pages/ClientTickets';
 import EmployeeDashboard from '../pages/EmployeeDashboard';
 import Login from '../pages/Login';
-import Register from '../Register';
+
 import AdminTickets from '../pages/AdminTickets';
 import PropTypes from 'prop-types';
 import Forgot from '../pages/ForgotPassword';
@@ -135,7 +135,7 @@ function Routers() {
     <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+     
       <Route path="/admin" element={<Admin />} />
       <Route path="/admin-tickets" element={<AdminTickets />} />
       <Route path="/clientdashboard" element={<ClientDashboard />} />

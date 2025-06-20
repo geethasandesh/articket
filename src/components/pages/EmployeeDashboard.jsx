@@ -381,9 +381,8 @@ function EmployeeDashboard() {
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, active: activeTab === 'dashboard' },
     { id: 'tickets', label: 'My Tickets', icon: FileText, active: activeTab === 'tickets' },
-    { id: 'create', label: 'Create Ticket', icon: Plus, active: activeTab === 'create' },
-    { id: 'notifications', label: 'Notifications', icon: Bell, active: activeTab === 'notifications' },
-    { id: 'settings', label: 'Settings', icon: Settings, active: activeTab === 'settings' }
+    { id: 'create', label: 'Create Ticket', icon: Plus, active: activeTab === 'create' }
+    
   ];
  
   const renderSidebarItem = (item) => {
@@ -661,18 +660,7 @@ function EmployeeDashboard() {
           )}
  
           {/* Conditional rendering for other tabs like notifications, settings */}
-          {activeTab === 'notifications' && (
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Notifications</h3>
-              <p className="text-gray-600">No new notifications.</p>
-            </div>
-          )}
-          {activeTab === 'settings' && (
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Settings</h3>
-              <p className="text-gray-600">Account settings will be available here.</p>
-            </div>
-          )}
+          
         </main>
       </div>
     </div>
