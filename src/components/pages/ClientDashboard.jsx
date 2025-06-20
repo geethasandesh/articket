@@ -90,6 +90,8 @@ function ClientDashboard() {
   const [createdDateFilter, setCreatedDateFilter] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -100,25 +102,42 @@ function ClientDashboard() {
   const mediumCount = useCountUp(tickets.filter(t => t.priority === 'Medium').length);
   const lowCount = useCountUp(tickets.filter(t => t.priority === 'Low').length);
  
-  const setupTicketListener = () => {
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthChecked(true);
+      if (!firebaseUser) {
+        setError('Please sign in to view tickets');
+        setIsLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+ 
+  useEffect(() => {
+    if (authChecked && user) {
+      setIsLoading(true);
+      setError(null);
+      setupTicketListener(user);
+    }
+  }, [authChecked, user]);
+ 
+  const setupTicketListener = (firebaseUser) => {
     try {
-      // Check if user is authenticated
-      if (!auth.currentUser) {
+      if (!firebaseUser) {
         setError('Please sign in to view tickets');
         setIsLoading(false);
         return;
       }
- 
       // Set client name from email
-      const email = auth.currentUser.email;
+      const email = firebaseUser.email;
       const name = email.split('@')[0];
       setClientName(name.charAt(0).toUpperCase() + name.slice(1));
-
       // Get user's project first
       let currentProject = 'General';
       const getUserProject = async () => {
         try {
-          const userDocRef = doc(db, 'users', auth.currentUser.uid);
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
@@ -129,13 +148,11 @@ function ClientDashboard() {
           console.error('Error fetching user project:', err);
           currentProject = 'General';
         }
-
         // Query tickets for the user's project (all tickets, not just user's own)
         const q = query(
           collection(db, 'tickets'),
           where('project', '==', currentProject)
         );
-       
         const unsubscribe = onSnapshot(q,
           (querySnapshot) => {
             try {
@@ -158,14 +175,12 @@ function ClientDashboard() {
                   priority: data.priority || 'Low'
                 });
               });
-             
               // Sort tickets by created date
               ticketsData.sort((a, b) => {
                 const dateA = a.created?.toDate?.() || new Date(a.created);
                 const dateB = b.created?.toDate?.() || new Date(b.created);
                 return dateB - dateA;
               });
-             
               setTickets(ticketsData);
               setError(null);
               setIsLoading(false);
@@ -181,10 +196,8 @@ function ClientDashboard() {
             setIsLoading(false);
           }
         );
- 
         unsubscribeRef.current = unsubscribe;
       };
-
       getUserProject();
     } catch (err) {
       console.error('Connection error:', err);

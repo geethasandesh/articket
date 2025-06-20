@@ -19,12 +19,13 @@ import {
   User
 } from 'lucide-react';
 import { collection, query, where, getDocs, getFirestore, doc, getDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import ProjectTickets from './ProjectManagerTickets';
 import TeamManagement from './TeamManagement';
+import Ticketing from './Ticketing';
 
 // Animated count-up hook (same as ClientDashboard)
 function useCountUp(target, duration = 1200) {
@@ -65,6 +66,8 @@ const ProjectManagerDashboard = () => {
     teamMembers: 0,
     completedTickets: 0
   });
+  const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser] = useState(null);
 
   const auth = getAuth();
   const db = getFirestore();
@@ -75,22 +78,27 @@ const ProjectManagerDashboard = () => {
   const lowCount = useCountUp(tickets.filter(t => t.priority === 'Low').length);
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthChecked(true);
+      if (!firebaseUser) {
+        navigate('/login');
+      }
+    });
+    return () => unsubscribe();
+  }, [auth, navigate]);
+
+  useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          navigate('/login');
-          return;
-        }
-
+        if (!user) return;
         // Get manager's name
-        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDocRef = doc(db, 'users', user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
           setManagerName(`${userData.firstName} ${userData.lastName}`.trim() || userData.email.split('@')[0]);
         }
-
         // Get VMM project
         const projectsQuery = query(
           collection(db, 'projects'),
@@ -102,7 +110,6 @@ const ProjectManagerDashboard = () => {
           ...doc.data()
         }));
         setProjects(projectsData);
-
         // Get VMM project employees
         const usersRef = collection(db, 'users');
         const employeesQuery = query(
@@ -112,7 +119,6 @@ const ProjectManagerDashboard = () => {
         );
         const employeesSnapshot = await getDocs(employeesQuery);
         const employeesCount = employeesSnapshot.size;
-
         // Get tickets for VMM project
         const ticketsQuery = query(
           collection(db, 'tickets'),
@@ -124,7 +130,6 @@ const ProjectManagerDashboard = () => {
           ...doc.data()
         }));
         setTickets(ticketsData);
-
         // Update stats
         setStats({
           totalProjects: projectsData.length,
@@ -132,16 +137,17 @@ const ProjectManagerDashboard = () => {
           teamMembers: employeesCount,
           completedTickets: ticketsData.filter(ticket => ticket.status === 'Closed').length
         });
-
         setLoading(false);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         setLoading(false);
       }
     };
-
-    fetchDashboardData();
-  }, [navigate, auth, db]);
+    if (authChecked && user) {
+      setLoading(true);
+      fetchDashboardData();
+    }
+  }, [authChecked, user, db]);
 
   const handleLogout = async () => {
     try {
@@ -183,7 +189,7 @@ const ProjectManagerDashboard = () => {
     );
   };
 
-  if (loading) {
+  if (!authChecked || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -498,6 +504,12 @@ const ProjectManagerDashboard = () => {
 
           {activeTab === 'tickets' && (
             <ProjectTickets setActiveTab={setActiveTab} />
+          )}
+
+          {activeTab === 'create' && (
+            <div className="max-w-auto mx-auto">
+              <Ticketing />
+            </div>
           )}
         </main>
       </div>

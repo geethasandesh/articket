@@ -1,10 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, getDocs, doc, updateDoc, arrayUnion, serverTimestamp, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
 import { Link } from 'react-router-dom';
 import { BsTicketFill, BsFolderFill } from 'react-icons/bs';
 import TicketDetails from './TicketDetails';
-
+import { sendEmail } from '../../utils/sendEmail';
+import { fetchProjectMemberEmails } from '../../utils/emailUtils';
+ 
+// Helper to safely format timestamps
+function formatTimestamp(ts) {
+  if (!ts) return '';
+  if (typeof ts === 'string') {
+    return new Date(ts).toLocaleString();
+  }
+  if (typeof ts.toDate === 'function') {
+    return ts.toDate().toLocaleString();
+  }
+  return '';
+}
+ 
 const ClientHeadTickets = ({ setActiveTab }) => {
   const [ticketsData, setTicketsData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,14 +33,20 @@ const ClientHeadTickets = ({ setActiveTab }) => {
   const [selectedProject, setSelectedProject] = useState('VMM');
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
-
+  const [currentUserData, setCurrentUserData] = useState(null);
+ 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async user => {
       if (user) {
-        console.log('User authenticated in ClientHeadTickets.jsx', user.email);
         setLoading(true);
         setCurrentUserEmail(user.email);
-
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          setCurrentUserData(userData);
+          setSelectedProject(userData.project || 'VMM');
+        }
         try {
           const filterData = sessionStorage.getItem('ticketFilter');
           if (filterData) {
@@ -38,139 +58,179 @@ const ClientHeadTickets = ({ setActiveTab }) => {
         } catch (err) {
           console.error('Error parsing filter data:', err);
         }
-
-        // Fetch employees and clients separately
-        try {
-          const usersRef = collection(db, 'users');
-          
-          // Fetch employees
-          const employeesQuery = query(
-            usersRef,
-            where('project', '==', 'VMM'),
-            where('role', '==', 'employee')
-          );
-          const employeesSnapshot = await getDocs(employeesQuery);
-          const employeesList = [];
-          const employeeEmails = new Set();
-          const employeeNameCounts = {};
-
-          employeesSnapshot.forEach((doc) => {
-            const userData = doc.data();
-            if (userData.email !== user.email && !employeeEmails.has(userData.email)) {
-              employeeEmails.add(userData.email);
-              
-              const displayName = userData.firstName && userData.lastName
-                ? `${userData.firstName} ${userData.lastName}`.trim()
-                : userData.email.split('@')[0];
-              
-              employeeNameCounts[displayName] = (employeeNameCounts[displayName] || 0) + 1;
-              
-              employeesList.push({
-                id: doc.id,
-                email: userData.email,
-                name: displayName
-              });
-            }
-          });
-
-          // Process employee display names
-          employeesList.sort((a, b) => a.name.localeCompare(b.name));
-          employeesList.forEach(emp => {
-            if (employeeNameCounts[emp.name] > 1) {
-              const emailPart = emp.email.split('@')[0];
-              emp.displayName = `${emp.name} (${emailPart})`;
-            } else {
-              emp.displayName = emp.name;
-            }
-          });
-          setEmployees(employeesList);
-
-          // Fetch clients
-          const clientsQuery = query(
-            usersRef,
-            where('project', '==', 'VMM'),
-            where('role', '==', 'client')
-          );
-          const clientsSnapshot = await getDocs(clientsQuery);
-          const clientsList = [];
-          const clientEmails = new Set();
-          const clientNameCounts = {};
-
-          clientsSnapshot.forEach((doc) => {
-            const userData = doc.data();
-            if (userData.email !== user.email && !clientEmails.has(userData.email)) {
-              clientEmails.add(userData.email);
-              
-              const displayName = userData.firstName && userData.lastName
-                ? `${userData.firstName} ${userData.lastName}`.trim()
-                : userData.email.split('@')[0];
-              
-              clientNameCounts[displayName] = (clientNameCounts[displayName] || 0) + 1;
-              
-              clientsList.push({
-                id: doc.id,
-                email: userData.email,
-                name: displayName
-              });
-            }
-          });
-
-          // Process client display names
-          clientsList.sort((a, b) => a.name.localeCompare(b.name));
-          clientsList.forEach(client => {
-            if (clientNameCounts[client.name] > 1) {
-              const emailPart = client.email.split('@')[0];
-              client.displayName = `${client.name} (${emailPart})`;
-            } else {
-              client.displayName = client.name;
-            }
-          });
-          setClients(clientsList);
-
-          // Set up real-time listener for tickets
-          const ticketsCollectionRef = collection(db, 'tickets');
-          const q = query(
-            ticketsCollectionRef,
-            where('project', '==', selectedProject)
-          );
-
-          const unsubscribeTickets = onSnapshot(q, (snapshot) => {
-            const tickets = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            }));
-            setTicketsData(tickets);
-            setLoading(false);
-            console.log(`Fetched tickets for project ${selectedProject}:`, tickets);
-          }, (err) => {
-            console.error('Error fetching project-filtered tickets:', err);
-            setError('Failed to load tickets for the project.');
-            setLoading(false);
-          });
-
-          return () => unsubscribeTickets();
-        } catch (err) {
-          console.error('Error fetching users:', err);
-          setLoading(false);
-        }
       } else {
-        console.log('No user authenticated in ClientHeadTickets.jsx');
         setLoading(false);
         setTicketsData([]);
       }
     });
-
     return () => unsubscribeAuth();
+  }, []);
+ 
+  useEffect(() => {
+    if (!selectedProject) return;
+    setLoading(true);
+    const usersRef = collection(db, 'users');
+    // Fetch employees
+    const employeesQuery = query(
+      usersRef,
+      where('project', '==', selectedProject),
+      where('role', '==', 'employee')
+    );
+    getDocs(employeesQuery).then(employeesSnapshot => {
+      const employeesList = [];
+      const employeeEmails = new Set();
+      const employeeNameCounts = {};
+      employeesSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        if (!employeeEmails.has(userData.email)) {
+          employeeEmails.add(userData.email);
+          const displayName = userData.firstName && userData.lastName
+            ? `${userData.firstName} ${userData.lastName}`.trim()
+            : userData.email.split('@')[0];
+          employeeNameCounts[displayName] = (employeeNameCounts[displayName] || 0) + 1;
+          employeesList.push({
+            id: doc.id,
+            email: userData.email,
+            name: displayName
+          });
+        }
+      });
+      employeesList.sort((a, b) => a.name.localeCompare(b.name));
+      employeesList.forEach(emp => {
+        if (employeeNameCounts[emp.name] > 1) {
+          const emailPart = emp.email.split('@')[0];
+          emp.displayName = `${emp.name} (${emailPart})`;
+        } else {
+          emp.displayName = emp.name;
+        }
+      });
+      setEmployees(employeesList);
+    });
+    // Fetch clients
+    const clientsQuery = query(
+      usersRef,
+      where('project', '==', selectedProject),
+      where('role', '==', 'client')
+    );
+    getDocs(clientsQuery).then(clientsSnapshot => {
+      const clientsList = [];
+      const clientEmails = new Set();
+      const clientNameCounts = {};
+      clientsSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        if (!clientEmails.has(userData.email)) {
+          clientEmails.add(userData.email);
+          const displayName = userData.firstName && userData.lastName
+            ? `${userData.firstName} ${userData.lastName}`.trim()
+            : userData.email.split('@')[0];
+          clientNameCounts[displayName] = (clientNameCounts[displayName] || 0) + 1;
+          clientsList.push({
+            id: doc.id,
+            email: userData.email,
+            name: displayName
+          });
+        }
+      });
+      clientsList.sort((a, b) => a.name.localeCompare(b.name));
+      clientsList.forEach(client => {
+        if (clientNameCounts[client.name] > 1) {
+          const emailPart = client.email.split('@')[0];
+          client.displayName = `${client.name} (${emailPart})`;
+        } else {
+          client.displayName = client.name;
+        }
+      });
+      setClients(clientsList);
+    });
+    // Real-time listener for tickets
+    const ticketsCollectionRef = collection(db, 'tickets');
+    const q = query(
+      ticketsCollectionRef,
+      where('project', '==', selectedProject)
+    );
+    const unsubscribeTickets = onSnapshot(q, (snapshot) => {
+      const tickets = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setTicketsData(tickets);
+      setLoading(false);
+    }, (err) => {
+      setError('Failed to load tickets for the project.');
+      setLoading(false);
+    });
+    return () => unsubscribeTickets();
   }, [selectedProject]);
-
+ 
   const handleTicketClick = (ticketId) => {
     setSelectedTicketId(ticketId);
   };
-
+ 
   const handleBackToTickets = () => {
     setSelectedTicketId(null);
   };
-
+ 
+  const handleAssignTicket = async (ticketId, selectedUserEmail) => {
+    const assignable = [...employees, ...clients];
+    const selectedUser = assignable.find(u => u.email === selectedUserEmail) || {
+      email: currentUserEmail,
+      id: 'me',
+      firstName: '',
+      lastName: '',
+    };
+    const ticket = ticketsData.find(t => t.id === ticketId);
+ 
+    if (!ticketId || !auth.currentUser || !selectedUser || !ticket) return;
+ 
+    const ticketRef = doc(db, 'tickets', ticketId);
+    const newAssignee = {
+      name: selectedUser.email.split('@')[0],
+      email: selectedUser.email
+    };
+    const assignerUsername = currentUserEmail.split('@')[0];
+ 
+    const response = {
+      message: `Ticket assigned to ${newAssignee.name} by ${assignerUsername}.`,
+      timestamp: new Date().toISOString(),
+      authorEmail: 'system',
+      authorRole: 'system',
+    };
+ 
+    try {
+      await updateDoc(ticketRef, {
+        assignedTo: newAssignee,
+        assignedBy: assignerUsername,
+        lastUpdated: serverTimestamp()
+      });
+      await updateDoc(ticketRef, {
+        customerResponses: arrayUnion(response)
+      });
+ 
+      const memberEmails = await fetchProjectMemberEmails(ticket.project);
+      const emailParams = {
+        to_email: memberEmails.join(','),
+        from_name: 'Articket Support',
+        reply_to: 'noreply@yourdomain.com',
+        subject: `[Assigned] ${ticket.subject}`,
+        request_id: ticket.id,
+        status: ticket.status,
+        priority: ticket.priority,
+        category: ticket.category,
+        project: ticket.project,
+        assigned_to: newAssignee.name,
+        assigned_by: assignerUsername,
+        created: ticket.created ? new Date(ticket.created.seconds * 1000).toLocaleString() : '',
+        requester: ticket.email,
+        description: ticket.description,
+        comment: response.message,
+        ticket_link: `https://articket.vercel.app/tickets/${ticket.id}`,
+      };
+      await sendEmail(emailParams);
+    } catch (err) {
+      console.error('Error assigning ticket:', err);
+    }
+  };
+ 
   // Compute filtered tickets
   const filteredTickets = ticketsData.filter(ticket => {
     const matchesStatus = filterStatus === 'All' || ticket.status === filterStatus;
@@ -178,15 +238,15 @@ const ClientHeadTickets = ({ setActiveTab }) => {
     const matchesSearch =
       ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ticket.id?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+   
     // Check both employee and client filters
     let matchesRaisedBy = true;
-    const ticketUser = employees.find(emp => emp.email === ticket.email) 
-      ? 'employee' 
-      : clients.find(client => client.email === ticket.email) 
-        ? 'client' 
+    const ticketUser = employees.find(emp => emp.email === ticket.email)
+      ? 'employee'
+      : clients.find(client => client.email === ticket.email)
+        ? 'client'
         : null;
-
+ 
     if (ticketUser === 'employee') {
       if (filterRaisedByEmployee === 'all') {
         matchesRaisedBy = true;
@@ -206,10 +266,10 @@ const ClientHeadTickets = ({ setActiveTab }) => {
         matchesRaisedBy = selectedClient ? ticket.email === selectedClient.email : false;
       }
     }
-    
+   
     return matchesStatus && matchesPriority && matchesSearch && matchesRaisedBy;
   });
-
+ 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -220,7 +280,7 @@ const ClientHeadTickets = ({ setActiveTab }) => {
       </div>
     );
   }
-
+ 
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -231,11 +291,11 @@ const ClientHeadTickets = ({ setActiveTab }) => {
       </div>
     );
   }
-
+ 
   if (selectedTicketId) {
     return <TicketDetails ticketId={selectedTicketId} onBack={handleBackToTickets} />;
   }
-
+ 
   return (
     <>
       <div className="flex justify-between items-center mb-8">
@@ -263,7 +323,7 @@ const ClientHeadTickets = ({ setActiveTab }) => {
           </Link>
         )}
       </div>
-
+ 
       {/* Filters Bar */}
       <div className="flex flex-wrap items-center gap-4 mb-6 bg-white p-4 rounded-xl shadow border border-gray-100">
         <div>
@@ -352,7 +412,7 @@ const ClientHeadTickets = ({ setActiveTab }) => {
           Clear Filters
         </button>
       </div>
-
+ 
       {filteredTickets.length > 0 ? (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <div className="overflow-x-auto">
@@ -373,6 +433,12 @@ const ClientHeadTickets = ({ setActiveTab }) => {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Raised By
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Assigned To
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Assigned By
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last Updated
@@ -413,7 +479,38 @@ const ClientHeadTickets = ({ setActiveTab }) => {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {ticket.lastUpdated ? new Date(ticket.lastUpdated.toDate()).toLocaleString() : 'N/A'}
+                      {(() => {
+                        // Hide dropdown if ticket raised by any client (including current user if client head)
+                        const ticketRaisedByClient = clients.some(client => client.email === ticket.email) || ticket.email === currentUserEmail;
+                        if (ticketRaisedByClient) {
+                          return ticket.assignedTo ? (ticket.assignedTo.name || ticket.assignedTo.email) : '-';
+                        }
+                        const assignable = employees;
+                        return (
+                          <select
+                            value={ticket.assignedTo?.email || ''}
+                            onChange={(e) => handleAssignTicket(ticket.id, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            disabled={assignable.length === 0}
+                          >
+                            <option value="" disabled>
+                              {ticket.assignedTo ? ticket.assignedTo.name : 'Assign...'}
+                            </option>
+                            {assignable.map(user => (
+                              <option key={user.id} value={user.email}>
+                                {user.email.split('@')[0]}
+                              </option>
+                            ))}
+                          </select>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {ticket.assignedBy || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatTimestamp(ticket.lastUpdated)}
                     </td>
                   </tr>
                 ))}
@@ -442,5 +539,6 @@ const ClientHeadTickets = ({ setActiveTab }) => {
     </>
   );
 };
-
-export default ClientHeadTickets; 
+ 
+export default ClientHeadTickets;
+ 

@@ -58,6 +58,8 @@ function EmployeeDashboard() {
   const [createdDateFilter, setCreatedDateFilter] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -127,26 +129,42 @@ function EmployeeDashboard() {
     }
   ];
  
-  const setupTicketListener = () => {
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthChecked(true);
+      if (!firebaseUser) {
+        setError('Please sign in to view tickets');
+        setIsLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+ 
+  useEffect(() => {
+    if (authChecked && user) {
+      setIsLoading(true);
+      setError(null);
+      setupTicketListener(user);
+    }
+  }, [authChecked, user]);
+ 
+  const setupTicketListener = (firebaseUser) => {
     try {
-      // Check if user is authenticated
-      if (!auth.currentUser) {
+      if (!firebaseUser) {
         setError('Please sign in to view tickets');
         setIsLoading(false);
         return;
       }
- 
       // Set employee name from email
-      const email = auth.currentUser.email;
+      const email = firebaseUser.email;
       const name = email.split('@')[0];
       setEmployeeName(name.charAt(0).toUpperCase() + name.slice(1));
- 
       // Query tickets for the current user
       const q = query(
         collection(db, 'tickets'),
-        where('email', '==', auth.currentUser.email)
+        where('email', '==', firebaseUser.email)
       );
-     
       const unsubscribe = onSnapshot(q,
         (querySnapshot) => {
           try {
@@ -167,14 +185,12 @@ function EmployeeDashboard() {
                 project: data.project || 'General'
               });
             });
-           
             // Sort tickets by created date
             ticketsData.sort((a, b) => {
               const dateA = a.created?.toDate?.() || new Date(a.created);
               const dateB = b.created?.toDate?.() || new Date(b.created);
               return dateB - dateA;
             });
-           
             setTickets(ticketsData);
             setError(null);
             setIsLoading(false);
@@ -190,7 +206,6 @@ function EmployeeDashboard() {
           setIsLoading(false);
         }
       );
- 
       unsubscribeRef.current = unsubscribe;
     } catch (err) {
       console.error('Connection error:', err);
@@ -219,15 +234,6 @@ function EmployeeDashboard() {
       }, 100);
     }
   }, [selectedTicket?.adminResponses, selectedTicket?.customerResponses, selectedTicket?.id]);
- 
-  useEffect(() => {
-    setupTicketListener();
-    return () => {
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-      }
-    };
-  }, []);
  
   const handleLogout = async () => {
     try {
@@ -381,8 +387,9 @@ function EmployeeDashboard() {
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, active: activeTab === 'dashboard' },
     { id: 'tickets', label: 'My Tickets', icon: FileText, active: activeTab === 'tickets' },
-    { id: 'create', label: 'Create Ticket', icon: Plus, active: activeTab === 'create' }
-    
+    { id: 'create', label: 'Create Ticket', icon: Plus, active: activeTab === 'create' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, active: activeTab === 'notifications' },
+    { id: 'settings', label: 'Settings', icon: Settings, active: activeTab === 'settings' }
   ];
  
   const renderSidebarItem = (item) => {
@@ -660,7 +667,18 @@ function EmployeeDashboard() {
           )}
  
           {/* Conditional rendering for other tabs like notifications, settings */}
-          
+          {activeTab === 'notifications' && (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Notifications</h3>
+              <p className="text-gray-600">No new notifications.</p>
+            </div>
+          )}
+          {activeTab === 'settings' && (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Settings</h3>
+              <p className="text-gray-600">Account settings will be available here.</p>
+            </div>
+          )}
         </main>
       </div>
     </div>

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
 import { Link, useNavigate } from 'react-router-dom';
 import { BsTicketFill, BsFolderFill } from 'react-icons/bs';
 import TicketDetails from './TicketDetails';
-
+ 
 const EmployeeTickets = () => {
   const [ticketsData, setTicketsData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,8 @@ const EmployeeTickets = () => {
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
   const [currentUserEmail, setCurrentUserEmail] = useState('');
-
+  const [currentUserData, setCurrentUserData] = useState(null);
+ 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async user => {
       if (user) {
@@ -34,6 +35,7 @@ const EmployeeTickets = () => {
             const userData = userDocSnap.data();
             currentProject = userData.project || 'General';
             setUserProject(currentProject);
+            setCurrentUserData(userData);
           } else {
             setUserProject('General');
           }
@@ -41,11 +43,11 @@ const EmployeeTickets = () => {
           setError('Failed to load user project.');
           setUserProject('General');
         }
-
+ 
         // Fetch employees and clients separately
         try {
           const usersRef = collection(db, 'users');
-          
+         
           // Fetch employees
           const employeesQuery = query(
             usersRef,
@@ -56,18 +58,18 @@ const EmployeeTickets = () => {
           const employeesList = [];
           const employeeEmails = new Set();
           const employeeNameCounts = {};
-
+ 
           employeesSnapshot.forEach((doc) => {
             const userData = doc.data();
-            if (userData.email !== user.email && !employeeEmails.has(userData.email)) {
+            if (!employeeEmails.has(userData.email)) {
               employeeEmails.add(userData.email);
-              
+             
               const displayName = userData.firstName && userData.lastName
                 ? `${userData.firstName} ${userData.lastName}`.trim()
                 : userData.email.split('@')[0];
-              
+             
               employeeNameCounts[displayName] = (employeeNameCounts[displayName] || 0) + 1;
-              
+             
               employeesList.push({
                 id: doc.id,
                 email: userData.email,
@@ -75,7 +77,7 @@ const EmployeeTickets = () => {
               });
             }
           });
-
+ 
           employeesList.sort((a, b) => a.name.localeCompare(b.name));
           employeesList.forEach(emp => {
             if (employeeNameCounts[emp.name] > 1) {
@@ -86,7 +88,7 @@ const EmployeeTickets = () => {
             }
           });
           setEmployees(employeesList);
-
+ 
           // Fetch clients
           const clientsQuery = query(
             usersRef,
@@ -97,18 +99,18 @@ const EmployeeTickets = () => {
           const clientsList = [];
           const clientEmails = new Set();
           const clientNameCounts = {};
-
+ 
           clientsSnapshot.forEach((doc) => {
             const userData = doc.data();
             if (userData.email !== user.email && !clientEmails.has(userData.email)) {
               clientEmails.add(userData.email);
-              
+             
               const displayName = userData.firstName && userData.lastName
                 ? `${userData.firstName} ${userData.lastName}`.trim()
                 : userData.email.split('@')[0];
-              
+             
               clientNameCounts[displayName] = (clientNameCounts[displayName] || 0) + 1;
-              
+             
               clientsList.push({
                 id: doc.id,
                 email: userData.email,
@@ -116,7 +118,7 @@ const EmployeeTickets = () => {
               });
             }
           });
-
+ 
           clientsList.sort((a, b) => a.name.localeCompare(b.name));
           clientsList.forEach(client => {
             if (clientNameCounts[client.name] > 1) {
@@ -127,13 +129,13 @@ const EmployeeTickets = () => {
             }
           });
           setClients(clientsList);
-
+ 
           console.log('Fetched employees:', employeesList);
           console.log('Fetched clients:', clientsList);
         } catch (err) {
           console.error('Error fetching users:', err);
         }
-
+ 
         // Query tickets for the employee's project
         const ticketsCollectionRef = collection(db, 'tickets');
         const q = query(
@@ -162,15 +164,15 @@ const EmployeeTickets = () => {
     });
     return () => unsubscribeAuth();
   }, []);
-
+ 
   const handleTicketClick = (ticketId) => {
     setSelectedTicketId(ticketId);
   };
-
+ 
   const handleBackToTickets = () => {
     setSelectedTicketId(null);
   };
-
+ 
   // Filter tickets based on all criteria
   const filteredTickets = ticketsData.filter(ticket => {
     const matchesStatus = filterStatus === 'All' || ticket.status === filterStatus;
@@ -178,17 +180,17 @@ const EmployeeTickets = () => {
     const matchesSearch =
       ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ticket.id?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+   
     // Check both employee and client filters
     let matchesRaisedBy = true;
-    const ticketUser = employees.find(emp => emp.email === ticket.email) 
-      ? 'employee' 
-      : clients.find(client => client.email === ticket.email) 
-        ? 'client' 
+    const ticketUser = employees.find(emp => emp.email === ticket.email)
+      ? 'employee'
+      : clients.find(client => client.email === ticket.email)
+        ? 'client'
         : null;
-
+ 
     if (ticketUser === 'employee') {
-      matchesRaisedBy = filterRaisedByEmployee === 'all' || 
+      matchesRaisedBy = filterRaisedByEmployee === 'all' ||
         (filterRaisedByEmployee === 'me' && ticket.email === currentUserEmail) ||
         employees.find(emp => emp.id === filterRaisedByEmployee)?.email === ticket.email;
     } else if (ticketUser === 'client') {
@@ -196,10 +198,43 @@ const EmployeeTickets = () => {
         (filterRaisedByClient === 'me' && ticket.email === currentUserEmail) ||
         clients.find(client => client.id === filterRaisedByClient)?.email === ticket.email;
     }
-    
+   
     return matchesStatus && matchesPriority && matchesSearch && matchesRaisedBy;
   });
-
+ 
+  const handleAssignTicket = async (ticketId, email) => {
+    if (!ticketId || !email) return;
+    const ticketRef = doc(db, 'tickets', ticketId);
+    const newAssignee = {
+      name: email.split('@')[0],
+      email: email
+    };
+    const assignerUsername = currentUserEmail.split('@')[0];
+    try {
+      await updateDoc(ticketRef, {
+        assignedTo: newAssignee,
+        assignedBy: assignerUsername,
+        lastUpdated: serverTimestamp()
+      });
+    } catch (err) {
+      console.error('Error assigning ticket:', err);
+    }
+  };
+ 
+  const handleUnassignTicket = async (ticketId) => {
+    if (!ticketId || !auth.currentUser) return;
+    const ticketRef = doc(db, 'tickets', ticketId);
+    try {
+      await updateDoc(ticketRef, {
+        assignedTo: null,
+        assignedBy: null,
+        lastUpdated: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('Error unassigning ticket:', err);
+    }
+  };
+ 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -210,7 +245,7 @@ const EmployeeTickets = () => {
       </div>
     );
   }
-
+ 
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -221,11 +256,11 @@ const EmployeeTickets = () => {
       </div>
     );
   }
-
+ 
   if (selectedTicketId) {
     return <TicketDetails ticketId={selectedTicketId} onBack={handleBackToTickets} />;
   }
-
+ 
   return (
     <>
       <div className="flex justify-between items-center mb-8">
@@ -245,7 +280,7 @@ const EmployeeTickets = () => {
           Create New Ticket
         </Link>
       </div>
-
+ 
       {/* Filters Bar */}
       <div className="flex flex-wrap items-center gap-4 mb-6 bg-white p-4 rounded-xl shadow border border-gray-100">
         <div>
@@ -334,7 +369,7 @@ const EmployeeTickets = () => {
           Clear Filters
         </button>
       </div>
-
+ 
       {ticketsData.length > 0 ? (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <div className="overflow-x-auto">
@@ -358,6 +393,9 @@ const EmployeeTickets = () => {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last Updated
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Assigned To
                   </th>
                 </tr>
               </thead>
@@ -399,6 +437,54 @@ const EmployeeTickets = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {ticket.lastUpdated ? new Date(ticket.lastUpdated.toDate()).toLocaleString() : 'N/A'}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {(() => {
+                        const creatorIsClient = clients.some(c => c.email === ticket.email);
+                        const isProjectManager = currentUserData?.role === 'project_manager';
+                        const assignable = creatorIsClient && !isProjectManager ? [] : employees;
+                        return (
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={ticket.assignedTo?.email || ''}
+                              onChange={(e) => handleAssignTicket(ticket.id, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              disabled={(!isProjectManager && creatorIsClient) && ticket.assignedTo?.email === currentUserEmail}
+                            >
+                              <option value="" disabled>
+                                {ticket.assignedTo ? ticket.assignedTo.name : 'Assign...'}
+                              </option>
+                              {/* If ticket raised by client and not project manager, only show 'Assign to me' */}
+                              {creatorIsClient && !isProjectManager ? (
+                                ticket.assignedTo?.email !== currentUserEmail && (
+                                  <option value={currentUserEmail}>
+                                    Assign to me ({currentUserEmail.split('@')[0]})
+                                  </option>
+                                )
+                              ) : (
+                                employees.map(user => (
+                                  <option key={user.id} value={user.email}>
+                                    {user.email.split('@')[0]}
+                                  </option>
+                                ))
+                              )}
+                            </select>
+                            {ticket.assignedTo && (
+                              <button
+                                type="button"
+                                className="ml-2 px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleUnassignTicket(ticket.id);
+                                }}
+                              >
+                                Unassign
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -426,6 +512,5 @@ const EmployeeTickets = () => {
     </>
   );
 };
-
-export default EmployeeTickets;
  
+export default EmployeeTickets;

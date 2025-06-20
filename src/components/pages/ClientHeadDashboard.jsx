@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ClientHeadTickets from './ClientHeadTickets';
+import Ticketing from './Ticketing';
 import {
   Users,
   Building,
@@ -22,11 +23,11 @@ import {
   Activity
 } from 'lucide-react';
 import { collection, query, where, getDocs, getFirestore, doc, getDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-
+ 
 // Animated count-up hook
 function useCountUp(target, duration = 1200) {
   const [count, setCount] = useState(0);
@@ -50,7 +51,7 @@ function useCountUp(target, duration = 1200) {
   }, [target, duration]);
   return count;
 }
-
+ 
 const ClientHeadDashboard = () => {
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);
@@ -67,32 +68,39 @@ const ClientHeadDashboard = () => {
     pendingTickets: 0,
     resolvedTickets: 0
   });
-
+  const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser] = useState(null);
+ 
   const auth = getAuth();
   const db = getFirestore();
-
+ 
   // Animated counts for priorities
   const highCount = useCountUp(tickets.filter(t => t.priority === 'High').length);
   const mediumCount = useCountUp(tickets.filter(t => t.priority === 'Medium').length);
   const lowCount = useCountUp(tickets.filter(t => t.priority === 'Low').length);
-
+ 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthChecked(true);
+      if (!firebaseUser) {
+        navigate('/login');
+      }
+    });
+    return () => unsubscribe();
+  }, [auth, navigate]);
+ 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          navigate('/login');
-          return;
-        }
-
+        if (!user) return;
         // Get client head's name
-        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDocRef = doc(db, 'users', user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
           setClientHeadName(`${userData.firstName} ${userData.lastName}`.trim() || userData.email.split('@')[0]);
         }
-
         // Fetch clients
         const clientsQuery = query(
           collection(db, 'users'),
@@ -104,7 +112,6 @@ const ClientHeadDashboard = () => {
           ...doc.data()
         }));
         setClients(clientsData);
-
         // Fetch projects
         const projectsQuery = query(collection(db, 'projects'));
         const projectsSnapshot = await getDocs(projectsQuery);
@@ -113,7 +120,6 @@ const ClientHeadDashboard = () => {
           ...doc.data()
         }));
         setProjects(projectsData);
-
         // Fetch tickets
         const ticketsQuery = query(collection(db, 'tickets'));
         const ticketsSnapshot = await getDocs(ticketsQuery);
@@ -122,7 +128,6 @@ const ClientHeadDashboard = () => {
           ...doc.data()
         }));
         setTickets(ticketsData);
-
         // Update stats
         setStats({
           totalClients: clientsData.length,
@@ -130,17 +135,18 @@ const ClientHeadDashboard = () => {
           pendingTickets: ticketsData.filter(ticket => ticket.status === 'Open').length,
           resolvedTickets: ticketsData.filter(ticket => ticket.status === 'Closed').length
         });
-
         setLoading(false);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         setLoading(false);
       }
     };
-
-    fetchDashboardData();
-  }, [navigate, auth, db]);
-
+    if (authChecked && user) {
+      setLoading(true);
+      fetchDashboardData();
+    }
+  }, [authChecked, user, db]);
+ 
   const handleLogout = async () => {
     try {
       await auth.signOut();
@@ -149,14 +155,14 @@ const ClientHeadDashboard = () => {
       console.error('Error signing out:', error);
     }
   };
-
+ 
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, active: activeTab === 'dashboard' },
     { id: 'clients', label: 'Clients', icon: Users, active: activeTab === 'clients' },
     { id: 'projects', label: 'Projects', icon: Briefcase, active: activeTab === 'projects' },
     { id: 'tickets', label: 'Tickets', icon: MessageSquare, active: activeTab === 'tickets' }
   ];
-
+ 
   const renderSidebarItem = (item) => {
     const IconComponent = item.icon;
     return (
@@ -180,15 +186,15 @@ const ClientHeadDashboard = () => {
       </button>
     );
   };
-
-  if (loading) {
+ 
+  if (!authChecked || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
-
+ 
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Mobile Sidebar Overlay */}
@@ -198,7 +204,7 @@ const ClientHeadDashboard = () => {
           onClick={() => setSidebarOpen(false)}
         />
       )}
-
+ 
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-50 transform transition-all duration-300 ease-in-out ${
         sidebarCollapsed ? 'w-20' : 'w-64'
@@ -230,12 +236,12 @@ const ClientHeadDashboard = () => {
               )}
             </button>
           </div>
-
+ 
           {/* Sidebar Navigation */}
           <nav className="flex-1 p-6 space-y-2">
             {sidebarItems.map(renderSidebarItem)}
           </nav>
-
+ 
           {/* Sidebar Footer */}
           <div className="p-6 border-t border-gray-200">
             {!sidebarCollapsed && (
@@ -259,7 +265,7 @@ const ClientHeadDashboard = () => {
           </div>
         </div>
       </aside>
-
+ 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
@@ -288,7 +294,7 @@ const ClientHeadDashboard = () => {
             </div>
           </div>
         </header>
-
+ 
         {/* Dashboard Content */}
         <main className="flex-1 overflow-auto p-6 bg-gray-50">
           {activeTab === 'dashboard' && (
@@ -306,7 +312,7 @@ const ClientHeadDashboard = () => {
                     </div>
                   </div>
                 </div>
-
+ 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
@@ -318,7 +324,7 @@ const ClientHeadDashboard = () => {
                     </div>
                   </div>
                 </div>
-
+ 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
@@ -330,7 +336,7 @@ const ClientHeadDashboard = () => {
                     </div>
                   </div>
                 </div>
-
+ 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
@@ -343,7 +349,7 @@ const ClientHeadDashboard = () => {
                   </div>
                 </div>
               </div>
-
+ 
               {/* Charts and Analytics Section */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Status Distribution Line Chart */}
@@ -372,7 +378,7 @@ const ClientHeadDashboard = () => {
                     </ResponsiveContainer>
                   </div>
                 </div>
-
+ 
                 {/* Priority Distribution */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
@@ -398,7 +404,7 @@ const ClientHeadDashboard = () => {
                   </div>
                 </div>
               </div>
-
+ 
               {/* Quick Actions */}
               <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
@@ -420,7 +426,7 @@ const ClientHeadDashboard = () => {
                       </div>
                     </div>
                   </button>
-
+ 
                   <button
                     onClick={() => setActiveTab('projects')}
                     className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-300 text-left"
@@ -435,7 +441,7 @@ const ClientHeadDashboard = () => {
                       </div>
                     </div>
                   </button>
-
+ 
                   <button
                     onClick={() => setActiveTab('tickets')}
                     className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-300 text-left"
@@ -452,7 +458,7 @@ const ClientHeadDashboard = () => {
                   </button>
                 </div>
               </div>
-
+ 
               {/* Clients and Recent Tickets Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Clients List */}
@@ -490,7 +496,7 @@ const ClientHeadDashboard = () => {
                     ))}
                   </div>
                 </div>
-
+ 
                 {/* Recent Tickets */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                   <div className="p-6 border-b border-gray-200">
@@ -529,7 +535,7 @@ const ClientHeadDashboard = () => {
               </div>
             </div>
           )}
-
+ 
           {/* Other tabs content */}
           {activeTab === 'clients' && (
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -537,21 +543,29 @@ const ClientHeadDashboard = () => {
               {/* Clients management content */}
             </div>
           )}
-
+ 
           {activeTab === 'projects' && (
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Projects Management</h2>
               {/* Projects management content */}
             </div>
           )}
-
+ 
           {activeTab === 'tickets' && (
             <ClientHeadTickets setActiveTab={setActiveTab} />
+          )}
+ 
+          {activeTab === 'create' && (
+            <div className="max-w-auto mx-auto">
+              <Ticketing />
+            </div>
           )}
         </main>
       </div>
     </div>
   );
 };
-
-export default ClientHeadDashboard; 
+ 
+export default ClientHeadDashboard;
+ 
+ 
