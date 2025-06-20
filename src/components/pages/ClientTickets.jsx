@@ -83,13 +83,13 @@ const ClientTickets = ({ setActiveTab }) => {
             const userData = doc.data();
             if (userData.email !== user.email && !employeeEmails.has(userData.email)) {
               employeeEmails.add(userData.email);
-              
+             
               const displayName = userData.firstName && userData.lastName
                 ? `${userData.firstName} ${userData.lastName}`.trim()
                 : userData.email.split('@')[0];
-              
+             
               employeeNameCounts[displayName] = (employeeNameCounts[displayName] || 0) + 1;
-              
+             
               employeesList.push({
                 id: doc.id,
                 email: userData.email,
@@ -97,7 +97,7 @@ const ClientTickets = ({ setActiveTab }) => {
               });
             }
           });
-
+         
           employeesList.sort((a, b) => a.name.localeCompare(b.name));
           employeesList.forEach(emp => {
             if (employeeNameCounts[emp.name] > 1) {
@@ -138,7 +138,7 @@ const ClientTickets = ({ setActiveTab }) => {
               });
             }
           });
-
+         
           clientsList.sort((a, b) => a.name.localeCompare(b.name));
           clientsList.forEach(client => {
             if (clientNameCounts[client.name] > 1) {
@@ -206,7 +206,7 @@ const ClientTickets = ({ setActiveTab }) => {
     const matchesSearch =
       ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ticket.id?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+   
     // Check both employee and client filters
     let matchesRaisedBy = true;
     const ticketUser = employees.find(emp => emp.email === ticket.email) 
@@ -224,7 +224,7 @@ const ClientTickets = ({ setActiveTab }) => {
         (filterRaisedByClient === 'me' && ticket.email === currentUserEmail) ||
         clients.find(client => client.id === filterRaisedByClient)?.email === ticket.email;
     }
-    
+   
     return matchesStatus && matchesPriority && matchesSearch && matchesRaisedBy;
   });
  
