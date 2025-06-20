@@ -296,6 +296,7 @@ function Projects() {
         userType: 'client'
       });
       showNotification('Member details updated successfully');
+      console.log('Member updated in Firestore!');
     } catch (error) {
       console.error('Error updating member:', error);
       showNotification('Failed to update member details', 'error');
