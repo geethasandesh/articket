@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
 import { Link, useNavigate } from 'react-router-dom';
 import { BsTicketFill, BsFolderFill } from 'react-icons/bs';
@@ -21,6 +21,8 @@ const ClientTickets = ({ setActiveTab }) => {
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
   const [currentUserEmail, setCurrentUserEmail] = useState('');
+  const [showEditTicketModal, setShowEditTicketModal] = useState(false);
+  const [editTicketData, setEditTicketData] = useState(null);
  
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async user => {
@@ -397,6 +399,9 @@ const ClientTickets = ({ setActiveTab }) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last Updated
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Edit
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -437,6 +442,20 @@ const ClientTickets = ({ setActiveTab }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {ticket.lastUpdated ? new Date(ticket.lastUpdated.toDate()).toLocaleString() : 'N/A'}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {ticket.email === currentUserEmail && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            setEditTicketData(ticket);
+                            setShowEditTicketModal(true);
+                          }}
+                          className="text-blue-600 hover:underline"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -458,6 +477,109 @@ const ClientTickets = ({ setActiveTab }) => {
               <BsFolderFill className="mr-2" />
               Create Your First Ticket
             </Link>
+          </div>
+        </div>
+      )}
+      {/* Edit Ticket Modal */}
+      {showEditTicketModal && editTicketData && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+          <div className="absolute inset-0 bg-black bg-opacity-40 backdrop-blur-sm"></div>
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg p-6 z-10">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Edit Ticket</h2>
+              <button
+                onClick={() => setShowEditTicketModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                &times;
+              </button>
+            </div>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const ticketRef = doc(db, 'tickets', editTicketData.id);
+                  await updateDoc(ticketRef, {
+                    subject: editTicketData.subject,
+                    description: editTicketData.description,
+                    priority: editTicketData.priority,
+                    status: editTicketData.status,
+                    lastUpdated: new Date()
+                  });
+                  // Update local state
+                  setTicketsData(prev => prev.map(t =>
+                    t.id === editTicketData.id ? { ...t, ...editTicketData, lastUpdated: new Date() } : t
+                  ));
+                  setShowEditTicketModal(false);
+                  setEditTicketData(null);
+                } catch (err) {
+                  alert('Failed to update ticket.');
+                }
+              }}
+            >
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                <input
+                  type="text"
+                  value={editTicketData.subject || ''}
+                  onChange={e => setEditTicketData({ ...editTicketData, subject: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={editTicketData.description || ''}
+                  onChange={e => setEditTicketData({ ...editTicketData, description: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  rows={4}
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <select
+                  value={editTicketData.priority || 'Medium'}
+                  onChange={e => setEditTicketData({ ...editTicketData, priority: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  required
+                >
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={editTicketData.status || 'Open'}
+                  onChange={e => setEditTicketData({ ...editTicketData, status: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  required
+                >
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditTicketModal(false)}
+                  className="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
