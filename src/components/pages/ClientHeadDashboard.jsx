@@ -99,7 +99,17 @@ const ClientHeadDashboard = () => {
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
-          setClientHeadName(`${userData.firstName} ${userData.lastName}`.trim() || userData.email.split('@')[0]);
+          let displayName = '';
+          if (userData.firstName && userData.lastName) {
+            displayName = `${userData.firstName} ${userData.lastName}`;
+          } else if (userData.firstName) {
+            displayName = userData.firstName;
+          } else if (userData.lastName) {
+            displayName = userData.lastName;
+          } else {
+            displayName = userData.email.split('@')[0];
+          }
+          setClientHeadName(displayName);
         }
         // Fetch clients
         const clientsQuery = query(
@@ -158,7 +168,7 @@ const ClientHeadDashboard = () => {
  
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, active: activeTab === 'dashboard' },
-    { id: 'clients', label: 'Clients', icon: Users, active: activeTab === 'clients' },
+    { id: 'clients', label: 'People', icon: Users, active: activeTab === 'clients' },
     { id: 'projects', label: 'Projects', icon: Briefcase, active: activeTab === 'projects' },
     { id: 'tickets', label: 'Tickets', icon: MessageSquare, active: activeTab === 'tickets' }
   ];
@@ -279,7 +289,7 @@ const ClientHeadDashboard = () => {
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Welcome back, {clientHeadName}!</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Welcome, {clientHeadName}!</h1>
                 <p className="text-gray-600">Monitor client activities and project progress</p>
               </div>
             </div>
@@ -412,35 +422,9 @@ const ClientHeadDashboard = () => {
                   Quick Actions
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <button
-                    onClick={() => setActiveTab('clients')}
-                    className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-300 text-left"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <Plus className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-semibold text-gray-900 text-lg">Add Client</p>
-                        <p className="text-gray-600 text-sm">Register new client</p>
-                      </div>
-                    </div>
-                  </button>
+                  
  
-                  <button
-                    onClick={() => setActiveTab('projects')}
-                    className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-300 text-left"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <Building className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-semibold text-gray-900 text-lg">View Projects</p>
-                        <p className="text-gray-600 text-sm">Manage projects</p>
-                      </div>
-                    </div>
-                  </button>
+                  
  
                   <button
                     onClick={() => setActiveTab('tickets')}
@@ -461,44 +445,8 @@ const ClientHeadDashboard = () => {
  
               {/* Clients and Recent Tickets Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Clients List */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                  <div className="p-6 border-b border-gray-200">
-                    <h2 className="text-xl font-semibold text-gray-900">Active Clients</h2>
-                  </div>
-                  <div className="divide-y divide-gray-200">
-                    {clients.slice(0, 5).map(client => (
-                      <div key={client.id} className="p-6 hover:bg-gray-50">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex-shrink-0">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-blue-600 font-medium">
-                                {client.firstName?.[0]}{client.lastName?.[0]}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-sm font-medium text-gray-900">
-                              {client.firstName} {client.lastName}
-                            </h3>
-                            <p className="text-sm text-gray-500">{client.company || 'No company specified'}</p>
-                          </div>
-                          <div>
-                            <button
-                              onClick={() => navigate(`/client/${client.id}`)}
-                              className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-                            >
-                              View Details →
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
- 
-                {/* Recent Tickets */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              {/* Recent Tickets */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                   <div className="p-6 border-b border-gray-200">
                     <h2 className="text-xl font-semibold text-gray-900">Recent Tickets</h2>
                   </div>
@@ -532,6 +480,9 @@ const ClientHeadDashboard = () => {
                     ))}
                   </div>
                 </div>
+ 
+ 
+               
               </div>
             </div>
           )}

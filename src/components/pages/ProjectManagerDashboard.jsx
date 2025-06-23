@@ -281,7 +281,7 @@ const ProjectManagerDashboard = () => {
                 <Menu className="w-6 h-6 text-gray-600" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Welcome back, {managerName}!</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Welcome, {managerName}!</h1>
                 <p className="text-gray-600">Manage your projects and team</p>
               </div>
             </div>

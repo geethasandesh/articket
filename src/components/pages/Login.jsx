@@ -161,7 +161,7 @@ const Login = () => {
         </div>
         <div>
           <h2 className="text-4xl font-bold text-gray-900 mb-2">
-            Welcome back!
+            Welcome!
           </h2>
           <p className="text-gray-600 mb-8">
             Simplify your workflow and boost your productivity<br />

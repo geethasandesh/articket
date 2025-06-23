@@ -719,7 +719,7 @@ function Admin() {
                   <ChevronsRight className="w-6 h-6 text-gray-600" />
                 </button>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Welcome back, Admin!</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">Welcome, Admin!</h1>
                   <p className="text-gray-600">Manage your organization, projects, and tickets</p>
                 </div>
               </div>
