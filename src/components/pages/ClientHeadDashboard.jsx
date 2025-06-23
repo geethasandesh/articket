@@ -69,6 +69,7 @@ const ClientHeadDashboard = () => {
   });
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
  
   const auth = getAuth();
   const db = getFirestore();
@@ -206,6 +207,32 @@ const ClientHeadDashboard = () => {
  
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-8 max-w-xs w-full text-center">
+            <h2 className="text-lg font-semibold mb-4">Confirm Logout</h2>
+            <p className="mb-6 text-gray-700">Are you sure you want to log out?</p>
+            <div className="flex justify-center gap-4">
+              <button
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                onClick={() => setShowLogoutConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  handleLogout();
+                }}
+              >
+                Yes, Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -229,8 +256,8 @@ const ClientHeadDashboard = () => {
                   <Building className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-l font-bold text-gray-900">Client Hub</h1>
-                  <p className="text-sm text-gray-500">Head Portal</p>
+                  <h1 className="text-l font-bold text-gray-900">Client Head</h1>
+                 
                 </div>
               </div>
             )}
@@ -265,7 +292,7 @@ const ClientHeadDashboard = () => {
               </div>
             )}
             <button
-              onClick={handleLogout}
+              onClick={() => setShowLogoutConfirm(true)}
               className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-start'} space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200`}
             >
               <LogOut className="w-4 h-4" />
@@ -294,7 +321,7 @@ const ClientHeadDashboard = () => {
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={handleLogout}
+                onClick={() => setShowLogoutConfirm(true)}
                 className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
               >
                 <LogOut className="w-4 h-4" />

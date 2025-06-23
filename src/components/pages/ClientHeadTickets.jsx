@@ -237,7 +237,7 @@ const ClientHeadTickets = ({ setActiveTab }) => {
     const matchesPriority = filterPriority === 'All' || ticket.priority === filterPriority;
     const matchesSearch =
       ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.id?.toLowerCase().includes(searchTerm.toLowerCase());
+      ticket.ticketNumber?.toLowerCase().includes(searchTerm.toLowerCase());
    
     // Check both employee and client filters
     let matchesRaisedBy = true;
@@ -453,7 +453,7 @@ const ClientHeadTickets = ({ setActiveTab }) => {
                     className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {ticket.id}
+                      {ticket.ticketNumber}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {ticket.subject}

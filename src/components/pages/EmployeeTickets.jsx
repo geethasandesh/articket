@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, doc, getDoc, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
-import { Link, useNavigate } from 'react-router-dom';
 import { BsTicketFill, BsFolderFill } from 'react-icons/bs';
 import TicketDetails from './TicketDetails';
- 
-const EmployeeTickets = () => {
+import PropTypes from 'prop-types';
+
+const EmployeeTickets = ({ setActiveTab }) => {
   const [ticketsData, setTicketsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
   const [userProject, setUserProject] = useState(null);
   const [selectedTicketId, setSelectedTicketId] = useState(null);
   const [filterStatus, setFilterStatus] = useState('All');
@@ -21,7 +20,7 @@ const EmployeeTickets = () => {
   const [clients, setClients] = useState([]);
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [currentUserData, setCurrentUserData] = useState(null);
- 
+
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async user => {
       if (user) {
@@ -39,11 +38,12 @@ const EmployeeTickets = () => {
           } else {
             setUserProject('General');
           }
-        } catch (err) {
+        } catch (error) {
+          console.error('Error loading user project:', error);
           setError('Failed to load user project.');
           setUserProject('General');
         }
- 
+
         // Fetch employees and clients separately
         try {
           const usersRef = collection(db, 'users');
@@ -58,7 +58,7 @@ const EmployeeTickets = () => {
           const employeesList = [];
           const employeeEmails = new Set();
           const employeeNameCounts = {};
- 
+
           employeesSnapshot.forEach((doc) => {
             const userData = doc.data();
             if (!employeeEmails.has(userData.email)) {
@@ -77,7 +77,7 @@ const EmployeeTickets = () => {
               });
             }
           });
- 
+
           employeesList.sort((a, b) => a.name.localeCompare(b.name));
           employeesList.forEach(emp => {
             if (employeeNameCounts[emp.name] > 1) {
@@ -88,7 +88,7 @@ const EmployeeTickets = () => {
             }
           });
           setEmployees(employeesList);
- 
+
           // Fetch clients
           const clientsQuery = query(
             usersRef,
@@ -99,7 +99,7 @@ const EmployeeTickets = () => {
           const clientsList = [];
           const clientEmails = new Set();
           const clientNameCounts = {};
- 
+
           clientsSnapshot.forEach((doc) => {
             const userData = doc.data();
             if (userData.email !== user.email && !clientEmails.has(userData.email)) {
@@ -118,7 +118,7 @@ const EmployeeTickets = () => {
               });
             }
           });
- 
+
           clientsList.sort((a, b) => a.name.localeCompare(b.name));
           clientsList.forEach(client => {
             if (clientNameCounts[client.name] > 1) {
@@ -129,13 +129,10 @@ const EmployeeTickets = () => {
             }
           });
           setClients(clientsList);
- 
-          console.log('Fetched employees:', employeesList);
-          console.log('Fetched clients:', clientsList);
         } catch (err) {
           console.error('Error fetching users:', err);
         }
- 
+
         // Query tickets for the employee's project
         const ticketsCollectionRef = collection(db, 'tickets');
         const q = query(
@@ -149,7 +146,8 @@ const EmployeeTickets = () => {
           }));
           setTicketsData(tickets);
           setLoading(false);
-        }, (err) => {
+        }, (error) => {
+          console.error('Error loading tickets:', error);
           setError('Failed to load tickets for your project.');
           setLoading(false);
         });
@@ -164,22 +162,22 @@ const EmployeeTickets = () => {
     });
     return () => unsubscribeAuth();
   }, []);
- 
+
   const handleTicketClick = (ticketId) => {
     setSelectedTicketId(ticketId);
   };
- 
+
   const handleBackToTickets = () => {
     setSelectedTicketId(null);
   };
- 
+
   // Filter tickets based on all criteria
   const filteredTickets = ticketsData.filter(ticket => {
     const matchesStatus = filterStatus === 'All' || ticket.status === filterStatus;
     const matchesPriority = filterPriority === 'All' || ticket.priority === filterPriority;
     const matchesSearch =
       ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.id?.toLowerCase().includes(searchTerm.toLowerCase());
+      ticket.ticketNumber?.toLowerCase().includes(searchTerm.toLowerCase());
    
     // Check both employee and client filters
     let matchesRaisedBy = true;
@@ -188,7 +186,7 @@ const EmployeeTickets = () => {
       : clients.find(client => client.email === ticket.email)
         ? 'client'
         : null;
- 
+
     if (ticketUser === 'employee') {
       matchesRaisedBy = filterRaisedByEmployee === 'all' ||
         (filterRaisedByEmployee === 'me' && ticket.email === currentUserEmail) ||
@@ -201,7 +199,7 @@ const EmployeeTickets = () => {
    
     return matchesStatus && matchesPriority && matchesSearch && matchesRaisedBy;
   });
- 
+
   const handleAssignTicket = async (ticketId, email) => {
     if (!ticketId || !email) return;
     const ticketRef = doc(db, 'tickets', ticketId);
@@ -220,7 +218,7 @@ const EmployeeTickets = () => {
       console.error('Error assigning ticket:', err);
     }
   };
- 
+
   const handleUnassignTicket = async (ticketId) => {
     if (!ticketId || !auth.currentUser) return;
     const ticketRef = doc(db, 'tickets', ticketId);
@@ -234,7 +232,7 @@ const EmployeeTickets = () => {
       console.error('Error unassigning ticket:', err);
     }
   };
- 
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -245,7 +243,7 @@ const EmployeeTickets = () => {
       </div>
     );
   }
- 
+
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -256,11 +254,11 @@ const EmployeeTickets = () => {
       </div>
     );
   }
- 
+
   if (selectedTicketId) {
     return <TicketDetails ticketId={selectedTicketId} onBack={handleBackToTickets} />;
   }
- 
+
   return (
     <>
       <div className="flex justify-between items-center mb-8">
@@ -272,15 +270,15 @@ const EmployeeTickets = () => {
             <p className="text-gray-600 mt-2">Project: {userProject}</p>
           )}
         </div>
-        <Link
-          to="/employeedashboard?tab=create"
+        <button
+          onClick={() => setActiveTab('create')}
           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 flex items-center"
         >
           <BsFolderFill className="mr-2" />
           Create New Ticket
-        </Link>
+        </button>
       </div>
- 
+
       {/* Filters Bar */}
       <div className="flex flex-wrap items-center gap-4 mb-6 bg-white p-4 rounded-xl shadow border border-gray-100">
         <div>
@@ -369,7 +367,7 @@ const EmployeeTickets = () => {
           Clear Filters
         </button>
       </div>
- 
+
       {ticketsData.length > 0 ? (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <div className="overflow-x-auto">
@@ -407,7 +405,7 @@ const EmployeeTickets = () => {
                     className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {ticket.id}
+                      {ticket.ticketNumber}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {ticket.subject}
@@ -441,7 +439,6 @@ const EmployeeTickets = () => {
                       {(() => {
                         const creatorIsClient = clients.some(c => c.email === ticket.email);
                         const isProjectManager = currentUserData?.role === 'project_manager';
-                        const assignable = creatorIsClient && !isProjectManager ? [] : employees;
                         return (
                           <div className="flex items-center gap-2">
                             <select
@@ -499,18 +496,22 @@ const EmployeeTickets = () => {
             No tickets have been raised for your project yet.
           </p>
           <div className="mt-6">
-            <Link
-              to="/employeedashboard?tab=create"
+            <button
+              onClick={() => setActiveTab('create')}
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <BsFolderFill className="mr-2" />
               Create New Ticket
-            </Link>
+            </button>
           </div>
         </div>
       )}
     </>
   );
 };
- 
+
+EmployeeTickets.propTypes = {
+  setActiveTab: PropTypes.func
+};
+
 export default EmployeeTickets;

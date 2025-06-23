@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, arrayUnion, onSnapshot, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase/config';
 import {
@@ -14,11 +14,7 @@ import {
   ChevronUp,
   AlertTriangle,
   Users,
-  Search,
-  Filter,
   Clock,
-  Settings,
-  MoreVertical
 } from 'lucide-react';
 
 function Projects() {
@@ -28,7 +24,6 @@ function Projects() {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [showDeleteProjectModal, setShowDeleteProjectModal] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
   const [expandedProject, setExpandedProject] = useState(null);
   const [formData, setFormData] = useState({
@@ -48,18 +43,12 @@ function Projects() {
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'projects'), (querySnapshot) => {
       const projectsData = querySnapshot.docs.map(doc => {
-        // console.log('Processing project document:', doc.id, doc.data()); // Commented out
         return {
         id: doc.id,
         ...doc.data()
         };
       });
-      // console.log('Real-time projects data received (total documents):', projectsData.length, projectsData); // Commented out
       setProjects(projectsData);
-      setLoading(false);
-    }, (error) => {
-      console.error('Error fetching real-time projects:', error);
-      setLoading(false);
     });
 
     return () => unsubscribe(); // Cleanup the listener on component unmount
@@ -78,6 +67,7 @@ function Projects() {
       setProjects([...projects, { id: docRef.id, ...formData, members: [] }]);
       setShowAddProjectModal(false);
       setFormData({ name: '', description: '', email: '', password: '', role: 'client', userType: 'client' });
+      showNotification('New project is created', 'success');
     } catch (error) {
       console.error('Error adding project:', error);
     }
@@ -93,7 +83,6 @@ function Projects() {
   const handleAddPerson = async (e) => {
     e.preventDefault();
     if (!selectedProject) {
-      console.error('No project selected when trying to add person.');
       return;
     }
 
@@ -204,12 +193,6 @@ function Projects() {
     }
   };
 
-  const handleDeleteClick = (projectId, e) => {
-    e.stopPropagation();
-    setProjectToDelete(projectId);
-    setShowDeleteConfirmModal(true);
-  };
-
   const handleDeleteConfirm = async () => {
     if (!projectToDelete) return;
     
@@ -241,7 +224,6 @@ function Projects() {
   const handleUpdateMember = async (e) => {
     e.preventDefault();
     if (!selectedProject || !editingMember) {
-      console.error('No project or member selected when trying to update member.');
       return;
     }
 
@@ -298,7 +280,6 @@ function Projects() {
         userType: 'client'
       });
       showNotification('Member details updated successfully');
-      console.log('Member updated in Firestore!');
     } catch (error) {
       console.error('Error updating member:', error);
       showNotification('Failed to update member details', 'error');
@@ -370,10 +351,21 @@ function Projects() {
       // Find the project and its members
       const project = projects.find(p => p.id === projectId);
       if (project && project.members && project.members.length > 0) {
-        // Delete each member's user document
+        // Remove project from each member's user document
         for (const member of project.members) {
           try {
-            await deleteDoc(doc(db, 'users', member.uid));
+            const userDocRef = doc(db, 'users', member.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+              const userData = userDocSnap.data();
+              let userProjects = userData.projects || [];
+              userProjects = userProjects.filter(pid => pid !== projectId);
+              let updateFields = { projects: userProjects };
+              if (userData.userType === 'client' && userProjects.length === 0) {
+                updateFields.project = null;
+              }
+              await updateDoc(userDocRef, updateFields);
+            }
           } catch (err) {
             // Ignore errors for missing docs
           }
@@ -382,7 +374,7 @@ function Projects() {
       // Delete the project itself
       await deleteDoc(doc(db, 'projects', projectId));
       setProjects(projects.filter(p => p.id !== projectId));
-      showNotification('Project and all its members deleted successfully');
+      showNotification('Project and all its members removed. Tickets remain for history.', 'success');
     } catch (error) {
       console.error('Error deleting project:', error);
       showNotification('Failed to delete project', 'error');

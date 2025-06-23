@@ -61,13 +61,14 @@ const ProjectManagerDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [managerName, setManagerName] = useState('');
   const [stats, setStats] = useState({
-    totalProjects: 0,
+   
     activeTickets: 0,
     teamMembers: 0,
     completedTickets: 0
   });
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const auth = getAuth();
   const db = getFirestore();
@@ -97,7 +98,17 @@ const ProjectManagerDashboard = () => {
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
-          setManagerName(`${userData.firstName} ${userData.lastName}`.trim() || userData.email.split('@')[0]);
+          let displayName = '';
+          if (userData.firstName && userData.lastName) {
+            displayName = `${userData.firstName} ${userData.lastName}`;
+          } else if (userData.firstName) {
+            displayName = userData.firstName;
+          } else if (userData.lastName) {
+            displayName = userData.lastName;
+          } else {
+            displayName = userData.email.split('@')[0];
+          }
+          setManagerName(displayName);
         }
         // Get VMM project
         const projectsQuery = query(
@@ -160,9 +171,8 @@ const ProjectManagerDashboard = () => {
 
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, active: activeTab === 'dashboard' },
-    { id: 'projects', label: 'Projects', icon: Briefcase, active: activeTab === 'projects' },
-    { id: 'team', label: 'Team', icon: Users, active: activeTab === 'team' },
-    { id: 'tickets', label: 'Tickets', icon: MessageSquare, active: activeTab === 'tickets' }
+    { id: 'tickets', label: 'Tickets', icon: MessageSquare, active: activeTab === 'tickets' },
+    { id: 'create', label: 'Create Ticket', icon: Plus, active: activeTab === 'create' }
   ];
 
   const renderSidebarItem = (item) => {
@@ -199,6 +209,32 @@ const ProjectManagerDashboard = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-8 max-w-xs w-full text-center">
+            <h2 className="text-lg font-semibold mb-4">Confirm Logout</h2>
+            <p className="mb-6 text-gray-700">Are you sure you want to log out?</p>
+            <div className="flex justify-center gap-4">
+              <button
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                onClick={() => setShowLogoutConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  handleLogout();
+                }}
+              >
+                Yes, Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -222,7 +258,7 @@ const ProjectManagerDashboard = () => {
                   <Briefcase className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-l font-bold text-gray-900">Project Hub</h1>
+                  <h1 className="text-l font-bold text-gray-900">Project Head</h1>
                   <p className="text-sm text-gray-500">Manager Portal</p>
                 </div>
               </div>
@@ -258,7 +294,7 @@ const ProjectManagerDashboard = () => {
               </div>
             )}
             <button
-              onClick={handleLogout}
+              onClick={() => setShowLogoutConfirm(true)}
               className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-start'} space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200`}
             >
               <LogOut className="w-4 h-4" />
@@ -282,12 +318,12 @@ const ProjectManagerDashboard = () => {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Welcome, {managerName}!</h1>
-                <p className="text-gray-600">Manage your projects and team</p>
+                <p className="text-gray-600">Manage your projects </p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={handleLogout}
+                onClick={() => setShowLogoutConfirm(true)}
                 className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
               >
                 <LogOut className="w-4 h-4" />
@@ -303,17 +339,7 @@ const ProjectManagerDashboard = () => {
             <div className="space-y-8">
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Projects</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.totalProjects}</p>
-                    </div>
-                    <div className="bg-blue-100 rounded-lg p-3">
-                      <Briefcase className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
+                
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <div className="flex items-center justify-between">
@@ -327,17 +353,7 @@ const ProjectManagerDashboard = () => {
                   </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Team Members</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.teamMembers}</p>
-                    </div>
-                    <div className="bg-green-100 rounded-lg p-3">
-                      <Users className="w-6 h-6 text-green-600" />
-                    </div>
-                  </div>
-                </div>
+                
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <div className="flex items-center justify-between">
@@ -414,35 +430,8 @@ const ProjectManagerDashboard = () => {
                   Quick Actions
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <button
-                    onClick={() => setActiveTab('projects')}
-                    className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-300 text-left"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <Plus className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-semibold text-gray-900 text-lg">New Project</p>
-                        <p className="text-gray-600 text-sm">Create a project</p>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('team')}
-                    className="group bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-300 text-left"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                        <Users className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div className="text-left">
-                        <p className="font-semibold text-gray-900 text-lg">Manage Team</p>
-                        <p className="text-gray-600 text-sm">View team members</p>
-                      </div>
-                    </div>
-                  </button>
+                  
+                 
 
                   <button
                     onClick={() => setActiveTab('tickets')}
@@ -461,46 +450,14 @@ const ProjectManagerDashboard = () => {
                 </div>
               </div>
 
-              {/* Projects List */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-xl font-semibold text-gray-900">Active Projects</h2>
-                </div>
-                <div className="divide-y divide-gray-200">
-                  {projects.map(project => (
-                    <div key={project.id} className="p-6 hover:bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-lg font-medium text-gray-900">{project.name}</h3>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {tickets.filter(t => t.projectId === project.id).length} Active Tickets
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => navigate(`/project/${project.id}`)}
-                          className="text-blue-600 hover:text-blue-700 font-medium text-sm"
-                        >
-                          View Details →
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              
             </div>
           )}
 
           {/* Other tabs content will be added here */}
-          {activeTab === 'projects' && (
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Projects Management</h2>
-              {/* Projects management content */}
-            </div>
-          )}
+         
 
-          {activeTab === 'team' && (
-            <TeamManagement />
-          )}
+          
 
           {activeTab === 'tickets' && (
             <ProjectTickets setActiveTab={setActiveTab} />

@@ -37,7 +37,6 @@ const TeamManagement = () => {
         const projectSnapshot = await getDocs(projectQuery);
         
         if (projectSnapshot.empty) {
-          console.error('VMM project not found');
           setLoading(false);
           return;
         }
@@ -62,7 +61,6 @@ const TeamManagement = () => {
           ...doc.data()
         }));
         
-        console.log('Found team members:', teamData.length);
         setTeamMembers(teamData);
         setLoading(false);
       } catch (error) {

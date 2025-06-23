@@ -25,19 +25,13 @@ const ForgotPassword = () => {
     }
  
     try {
-      console.log("Starting password reset process for email:", email);
-     
       // First check if the email exists in Firebase Auth
-      console.log("Checking if email exists in Firebase Auth...");
       const signInMethods = await fetchSignInMethodsForEmail(auth, email);
-      console.log("Sign in methods found:", signInMethods);
      
       if (signInMethods.length === 0) {
-        console.log("Email not found in Firebase Auth, checking Firestore...");
         // If not in Auth, check Firestore
         const usersQuery = query(collection(db, 'users'), where('email', '==', email));
         const userSnapshot = await getDocs(usersQuery);
-        console.log("Firestore query results:", userSnapshot.empty ? "No user found" : "User found");
  
         if (userSnapshot.empty) {
           setError("No account found with this email address");
@@ -48,59 +42,48 @@ const ForgotPassword = () => {
         // If user exists in Firestore but not in Auth, we need to create their Auth account first
         const userData = userSnapshot.docs[0].data();
         const userDocRef = userSnapshot.docs[0].ref;
-        console.log("User data from Firestore:", { ...userData, password: userData.password ? "exists" : "not set" });
  
         // Generate a temporary password if one doesn't exist
         const tempPassword = userData.password || Math.random().toString(36).slice(-8);
        
         try {
           // Create the Firebase Auth account using the temporary password
-          console.log("Creating Firebase Auth account for pending user...");
           await createUserWithEmailAndPassword(auth, email, tempPassword);
-          console.log("Firebase Auth account created successfully");
  
           // Update the user's status in Firestore
           await updateDoc(userDocRef, {
             status: 'active',
             password: tempPassword // Keep the password temporarily
           });
-          console.log("User status updated in Firestore");
  
           // Now send the password reset email
-          console.log("Sending password reset email...");
           try {
             await sendPasswordResetEmail(auth, email, {
               url: window.location.origin + '/',
               handleCodeInApp: true
             });
-            console.log("Password reset email sent successfully");
             setSuccess("Password reset link has been sent to your email. Please check your inbox.");
             setTimeout(() => {
               navigate('/');
             }, 3000);
           } catch (resetError) {
-            console.error("Error sending reset email:", resetError);
             throw resetError;
           }
           return;
         } catch (authError) {
-          console.error("Error in auth process:", authError);
           if (authError.code === 'auth/email-already-in-use') {
             // If the account was created in the meantime, try sending reset email
             try {
-              console.log("Account already exists, attempting to send reset email...");
               await sendPasswordResetEmail(auth, email, {
                 url: window.location.origin + '/',
                 handleCodeInApp: true
               });
-              console.log("Password reset email sent successfully");
               setSuccess("Password reset link has been sent to your email. Please check your inbox.");
               setTimeout(() => {
                 navigate('/');
               }, 3000);
               return;
             } catch (resetError) {
-              console.error("Error sending reset email to existing account:", resetError);
               throw resetError;
             }
           }
@@ -109,29 +92,20 @@ const ForgotPassword = () => {
       }
  
       // If we get here, the email exists in Auth, so we can send the reset email
-      console.log("Email exists in Firebase Auth, sending reset email...");
       try {
         await sendPasswordResetEmail(auth, email, {
           url: window.location.origin + '/',
           handleCodeInApp: true
         });
-        console.log("Password reset email sent successfully");
         setSuccess("Password reset link has been sent to your email. Please check your inbox.");
         setTimeout(() => {
           navigate('/');
         }, 3000);
       } catch (resetError) {
-        console.error("Error sending reset email:", resetError);
         throw resetError;
       }
  
     } catch (err) {
-      console.error("Detailed error in password reset:", {
-        code: err.code,
-        message: err.message,
-        fullError: err
-      });
-     
       switch (err.code) {
         case 'auth/invalid-email':
           setError("Invalid email address format");

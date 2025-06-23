@@ -64,6 +64,7 @@ function EmployeeDashboard() {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const unsubscribeRef = useRef(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
  
   // Mock data for demonstration
   const mockTickets = [
@@ -387,9 +388,9 @@ function EmployeeDashboard() {
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, active: activeTab === 'dashboard' },
     { id: 'tickets', label: 'My Tickets', icon: FileText, active: activeTab === 'tickets' },
-    { id: 'create', label: 'Create Ticket', icon: Plus, active: activeTab === 'create' },
-    { id: 'notifications', label: 'Notifications', icon: Bell, active: activeTab === 'notifications' },
-    { id: 'settings', label: 'Settings', icon: Settings, active: activeTab === 'settings' }
+    { id: 'create', label: 'Create Ticket', icon: Plus, active: activeTab === 'create' }
+   
+    
   ];
  
   const renderSidebarItem = (item) => {
@@ -475,6 +476,32 @@ function EmployeeDashboard() {
  
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-8 max-w-xs w-full text-center">
+            <h2 className="text-lg font-semibold mb-4">Confirm Logout</h2>
+            <p className="mb-6 text-gray-700">Are you sure you want to log out?</p>
+            <div className="flex justify-center gap-4">
+              <button
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                onClick={() => setShowLogoutConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  handleLogout();
+                }}
+              >
+                Yes, Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -494,7 +521,7 @@ function EmployeeDashboard() {
                   <MessageSquare className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-l font-bold text-gray-900">Support Hub</h1>
+                 
                   <p className="text-sm text-gray-500">Employee Portal</p>
                 </div>
               </div>
@@ -530,7 +557,7 @@ function EmployeeDashboard() {
               </div>
             )}
             <button
-              onClick={handleLogout}
+              onClick={() => setShowLogoutConfirm(true)}
               className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-start'} space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200`}
             >
               <LogOut className="w-4 h-4" />
@@ -558,12 +585,9 @@ function EmployeeDashboard() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative">
-                <Bell className="w-6 h-6 text-gray-600" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-              </button>
+              
               <button
-                onClick={handleLogout}
+                onClick={() => setShowLogoutConfirm(true)}
                 className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
               >
                 <LogOut className="w-4 h-4" />
@@ -666,19 +690,7 @@ function EmployeeDashboard() {
             </div>
           )}
  
-          {/* Conditional rendering for other tabs like notifications, settings */}
-          {activeTab === 'notifications' && (
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Notifications</h3>
-              <p className="text-gray-600">No new notifications.</p>
-            </div>
-          )}
-          {activeTab === 'settings' && (
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Settings</h3>
-              <p className="text-gray-600">Account settings will be available here.</p>
-            </div>
-          )}
+          
         </main>
       </div>
     </div>

@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, doc, getDoc, getDocs, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
-import { Link, useNavigate } from 'react-router-dom';
 import { BsTicketFill, BsFolderFill } from 'react-icons/bs';
 import TicketDetails from './TicketDetails';
 import { sendEmail } from '../../utils/sendEmail';
-import { fetchProjectMemberEmails } from '../../utils/emailUtils';
- 
+import PropTypes from 'prop-types';
+
 // Helper to safely format timestamps
 function formatTimestamp(ts) {
   if (!ts) return '';
@@ -18,7 +17,7 @@ function formatTimestamp(ts) {
   }
   return '';
 }
- 
+
 const ProjectManagerTickets = ({ setActiveTab }) => {
   const [ticketsData, setTicketsData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,20 +26,16 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterPriority, setFilterPriority] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [teamMembers, setTeamMembers] = useState([]);
   const [filterRaisedByEmployee, setFilterRaisedByEmployee] = useState('all');
   const [filterRaisedByClient, setFilterRaisedByClient] = useState('all');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
-  const [projects, setProjects] = useState([]);
-  const [selectedProject, setSelectedProject] = useState('VMM');
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
   const [currentUserData, setCurrentUserData] = useState(null);
- 
+
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async user => {
       if (user) {
-        console.log('User authenticated in ProjectManagerTickets.jsx', user.email);
         setLoading(true);
         setCurrentUserEmail(user.email);
         const userDocRef = doc(db, 'users', user.uid);
@@ -48,7 +43,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
         if (userDocSnap.exists()) {
           setCurrentUserData(userDocSnap.data());
         }
- 
+
         try {
           const filterData = sessionStorage.getItem('ticketFilter');
           if (filterData) {
@@ -60,7 +55,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
         } catch (err) {
           console.error('Error parsing filter data:', err);
         }
- 
+
         // Fetch employees and clients separately
         try {
           const usersRef = collection(db, 'users');
@@ -75,7 +70,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
           const employeesList = [];
           const employeeEmails = new Set();
           const employeeNameCounts = {};
- 
+
           employeesSnapshot.forEach((doc) => {
             const userData = doc.data();
             if (userData.email !== user.email && !employeeEmails.has(userData.email)) {
@@ -94,7 +89,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
               });
             }
           });
- 
+
           // Process employee display names
           employeesList.sort((a, b) => a.name.localeCompare(b.name));
           employeesList.forEach(emp => {
@@ -106,7 +101,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
             }
           });
           setEmployees(employeesList);
- 
+
           // Fetch clients
           const clientsQuery = query(
             usersRef,
@@ -117,7 +112,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
           const clientsList = [];
           const clientEmails = new Set();
           const clientNameCounts = {};
- 
+
           clientsSnapshot.forEach((doc) => {
             const userData = doc.data();
             if (userData.email !== user.email && !clientEmails.has(userData.email)) {
@@ -136,7 +131,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
               });
             }
           });
- 
+
           // Process client display names
           clientsList.sort((a, b) => a.name.localeCompare(b.name));
           clientsList.forEach(client => {
@@ -148,20 +143,18 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
             }
           });
           setClients(clientsList);
- 
-          console.log('Fetched employees:', employeesList);
-          console.log('Fetched clients:', clientsList);
+
         } catch (err) {
           console.error('Error fetching users:', err);
         }
- 
+
         // Set up real-time listener for tickets
         const ticketsCollectionRef = collection(db, 'tickets');
         const q = query(
           ticketsCollectionRef,
-          where('project', '==', selectedProject)
+          where('project', '==', 'VMM')
         );
- 
+
         const unsubscribeTickets = onSnapshot(q, (snapshot) => {
           const tickets = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -169,33 +162,32 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
           }));
           setTicketsData(tickets);
           setLoading(false);
-          console.log(`Fetched tickets for project ${selectedProject}:`, tickets);
         }, (err) => {
           console.error('Error fetching project-filtered tickets:', err);
           setError('Failed to load tickets for the project.');
           setLoading(false);
         });
- 
+
         return () => unsubscribeTickets();
       } else {
-        console.log('No user authenticated in ProjectManagerTickets.jsx');
         setLoading(false);
         setTicketsData([]);
-        setTeamMembers([]);
+        setEmployees([]);
+        setClients([]);
       }
     });
- 
+
     return () => unsubscribeAuth();
-  }, [selectedProject]);
- 
+  }, []);
+
   const handleTicketClick = (ticketId) => {
     setSelectedTicketId(ticketId);
   };
- 
+
   const handleBackToTickets = () => {
     setSelectedTicketId(null);
   };
- 
+
   const handleAssignTicket = async (ticketId, selectedUserEmail) => {
     const assignable = [...employees, ...clients];
     const selectedUser = assignable.find(u => u.email === selectedUserEmail) || {
@@ -205,23 +197,23 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
       lastName: '',
     };
     const ticket = ticketsData.find(t => t.id === ticketId);
- 
+
     if (!ticketId || !auth.currentUser || !selectedUser || !ticket) return;
- 
+
     const ticketRef = doc(db, 'tickets', ticketId);
     const newAssignee = {
       name: selectedUser.email.split('@')[0],
       email: selectedUser.email
     };
     const assignerUsername = currentUserEmail.split('@')[0];
- 
+
     const response = {
       message: `Ticket assigned to ${newAssignee.name} by ${assignerUsername}.`,
       timestamp: new Date().toISOString(),
       authorEmail: 'system',
       authorRole: 'system',
     };
- 
+
     try {
       await updateDoc(ticketRef, {
         assignedTo: newAssignee,
@@ -231,8 +223,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
       await updateDoc(ticketRef, {
         customerResponses: arrayUnion(response)
       });
- 
-      const memberEmails = await fetchProjectMemberEmails(ticket.project);
+
       const emailParams = {
         name: newAssignee.name,
         email: newAssignee.email,
@@ -242,11 +233,11 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
         priority: ticket.priority,
       };
       await sendEmail(emailParams);
-    } catch (err) {
-      console.error('Error assigning ticket:', err);
+    } catch (error) {
+      console.error('Error assigning ticket:', error);
     }
   };
- 
+
   // Add this function to allow unassigning a ticket
   const handleUnassignTicket = async (ticketId) => {
     if (!ticketId || !auth.currentUser) return;
@@ -261,14 +252,14 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
       console.error('Error unassigning ticket:', err);
     }
   };
- 
+
   // Compute filtered tickets
   const filteredTickets = ticketsData.filter(ticket => {
     const matchesStatus = filterStatus === 'All' || ticket.status === filterStatus;
     const matchesPriority = filterPriority === 'All' || ticket.priority === filterPriority;
     const matchesSearch =
       ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ticket.id?.toLowerCase().includes(searchTerm.toLowerCase());
+      ticket.ticketNumber?.toLowerCase().includes(searchTerm.toLowerCase());
    
     // Check both employee and client filters
     let matchesRaisedBy = true;
@@ -277,7 +268,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
       : clients.find(client => client.email === ticket.email)
         ? 'client'
         : null;
- 
+
     if (ticketUser === 'employee') {
       matchesRaisedBy = filterRaisedByEmployee === 'all' ||
         (filterRaisedByEmployee === 'me' && ticket.email === currentUserEmail) ||
@@ -290,7 +281,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
    
     return matchesStatus && matchesPriority && matchesSearch && matchesRaisedBy;
   });
- 
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -301,7 +292,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
       </div>
     );
   }
- 
+
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -312,11 +303,11 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
       </div>
     );
   }
- 
+
   if (selectedTicketId) {
     return <TicketDetails ticketId={selectedTicketId} onBack={handleBackToTickets} />;
   }
- 
+
   return (
     <>
       <div className="flex justify-between items-center mb-8">
@@ -324,7 +315,6 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
           <h1 className="text-3xl font-bold text-gray-900 flex items-center">
             <BsTicketFill className="mr-3 text-blue-600" /> Project Tickets
           </h1>
-          <p className="text-gray-600 mt-2">Project: {selectedProject}</p>
         </div>
         {setActiveTab ? (
           <button
@@ -335,16 +325,16 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
             Create New Ticket
           </button>
         ) : (
-          <Link
-            to="/project-manager-dashboard?tab=create"
+          <button
+            onClick={() => setActiveTab('create')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 flex items-center"
           >
             <BsFolderFill className="mr-2" />
             Create New Ticket
-          </Link>
+          </button>
         )}
       </div>
- 
+
       {/* Updated Filters Bar */}
       <div className="flex flex-wrap items-center gap-4 mb-6 bg-white p-4 rounded-xl shadow border border-gray-100">
         <div>
@@ -433,7 +423,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
           Clear Filters
         </button>
       </div>
- 
+
       {filteredTickets.length > 0 ? (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <div className="overflow-x-auto">
@@ -474,7 +464,7 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
                     className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {ticket.id}
+                      {ticket.ticketNumber}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {ticket.subject}
@@ -561,19 +551,23 @@ const ProjectManagerTickets = ({ setActiveTab }) => {
             Get started by creating a new ticket.
           </p>
           <div className="mt-6">
-            <Link
-              to="/project-manager-dashboard?tab=create"
+            <button
+              onClick={() => setActiveTab('create')}
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <BsFolderFill className="mr-2" />
               Create New Ticket
-            </Link>
+            </button>
           </div>
         </div>
       )}
     </>
   );
 };
- 
+
+ProjectManagerTickets.propTypes = {
+  setActiveTab: PropTypes.func
+};
+
 export default ProjectManagerTickets;
  

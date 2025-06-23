@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
 import { Link, useNavigate } from 'react-router-dom';
 import { BsTicketFill, BsFolderFill } from 'react-icons/bs';
 import TicketDetails from './TicketDetails';
+import { sendEmail } from '../../utils/sendEmail';
  
 const ClientTickets = ({ setActiveTab }) => {
   const [ticketsData, setTicketsData] = useState([]);
@@ -21,13 +22,10 @@ const ClientTickets = ({ setActiveTab }) => {
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
   const [currentUserEmail, setCurrentUserEmail] = useState('');
-  const [showEditTicketModal, setShowEditTicketModal] = useState(false);
-  const [editTicketData, setEditTicketData] = useState(null);
  
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged(async user => {
       if (user) {
-        console.log('User authenticated in ClientTickets.jsx', user.email);
         setLoading(true);
         setCurrentUserEmail(user.email);
  
@@ -55,9 +53,7 @@ const ClientTickets = ({ setActiveTab }) => {
             const userData = userDocSnap.data();
             currentProject = userData.project || 'General';
             setUserProject(currentProject);
-            console.log('Fetched user project:', currentProject);
           } else {
-            console.warn('User document not found for uid:', user.uid);
             setUserProject('General');
           }
         } catch (err) {
@@ -69,7 +65,7 @@ const ClientTickets = ({ setActiveTab }) => {
         // Fetch employees and clients separately
         try {
           const usersRef = collection(db, 'users');
-          
+         
           // Fetch employees
           const employeesQuery = query(
             usersRef,
@@ -80,7 +76,7 @@ const ClientTickets = ({ setActiveTab }) => {
           const employeesList = [];
           const employeeEmails = new Set();
           const employeeNameCounts = {};
-
+ 
           employeesSnapshot.forEach((doc) => {
             const userData = doc.data();
             if (userData.email !== user.email && !employeeEmails.has(userData.email)) {
@@ -99,7 +95,7 @@ const ClientTickets = ({ setActiveTab }) => {
               });
             }
           });
-         
+ 
           employeesList.sort((a, b) => a.name.localeCompare(b.name));
           employeesList.forEach(emp => {
             if (employeeNameCounts[emp.name] > 1) {
@@ -110,7 +106,7 @@ const ClientTickets = ({ setActiveTab }) => {
             }
           });
           setEmployees(employeesList);
-
+ 
           // Fetch clients
           const clientsQuery = query(
             usersRef,
@@ -121,18 +117,18 @@ const ClientTickets = ({ setActiveTab }) => {
           const clientsList = [];
           const clientEmails = new Set();
           const clientNameCounts = {};
-
+ 
           clientsSnapshot.forEach((doc) => {
             const userData = doc.data();
             if (userData.email !== user.email && !clientEmails.has(userData.email)) {
               clientEmails.add(userData.email);
-              
+             
               const displayName = userData.firstName && userData.lastName
                 ? `${userData.firstName} ${userData.lastName}`.trim()
                 : userData.email.split('@')[0];
-              
+             
               clientNameCounts[displayName] = (clientNameCounts[displayName] || 0) + 1;
-              
+             
               clientsList.push({
                 id: doc.id,
                 email: userData.email,
@@ -140,7 +136,7 @@ const ClientTickets = ({ setActiveTab }) => {
               });
             }
           });
-         
+ 
           clientsList.sort((a, b) => a.name.localeCompare(b.name));
           clientsList.forEach(client => {
             if (clientNameCounts[client.name] > 1) {
@@ -151,9 +147,6 @@ const ClientTickets = ({ setActiveTab }) => {
             }
           });
           setClients(clientsList);
-
-          console.log('Fetched employees:', employeesList);
-          console.log('Fetched clients:', clientsList);
         } catch (err) {
           console.error('Error fetching users:', err);
         }
@@ -171,7 +164,6 @@ const ClientTickets = ({ setActiveTab }) => {
           }));
           setTicketsData(tickets);
           setLoading(false);
-          console.log(`Fetched tickets for project ${currentProject}:`, tickets);
         }, (err) => {
           console.error('Error fetching project-filtered tickets:', err);
           setError('Failed to load tickets for your project.');
@@ -181,7 +173,6 @@ const ClientTickets = ({ setActiveTab }) => {
         return () => unsubscribeTickets();
  
       } else {
-        console.log('No user authenticated in ClientTickets.jsx');
         setLoading(false);
         setTicketsData([]);
         setUserProject(null);
@@ -211,14 +202,14 @@ const ClientTickets = ({ setActiveTab }) => {
    
     // Check both employee and client filters
     let matchesRaisedBy = true;
-    const ticketUser = employees.find(emp => emp.email === ticket.email) 
-      ? 'employee' 
-      : clients.find(client => client.email === ticket.email) 
-        ? 'client' 
+    const ticketUser = employees.find(emp => emp.email === ticket.email)
+      ? 'employee'
+      : clients.find(client => client.email === ticket.email)
+        ? 'client'
         : null;
-
+ 
     if (ticketUser === 'employee') {
-      matchesRaisedBy = filterRaisedByEmployee === 'all' || 
+      matchesRaisedBy = filterRaisedByEmployee === 'all' ||
         (filterRaisedByEmployee === 'me' && ticket.email === currentUserEmail) ||
         employees.find(emp => emp.id === filterRaisedByEmployee)?.email === ticket.email;
     } else if (ticketUser === 'client') {
@@ -374,7 +365,7 @@ const ClientTickets = ({ setActiveTab }) => {
         >
           Clear Filters
         </button>
-      </div> 
+      </div>
       {filteredTickets.length > 0 ? (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <div className="overflow-x-auto">
@@ -397,10 +388,10 @@ const ClientTickets = ({ setActiveTab }) => {
                     Raised By
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Updated
+                    Assigned To
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Edit
+                    Last Updated
                   </th>
                 </tr>
               </thead>
@@ -412,7 +403,7 @@ const ClientTickets = ({ setActiveTab }) => {
                     className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {ticket.id}
+                      {ticket.ticketNumber}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {ticket.subject}
@@ -440,21 +431,65 @@ const ClientTickets = ({ setActiveTab }) => {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {ticket.lastUpdated ? new Date(ticket.lastUpdated.toDate()).toLocaleString() : 'N/A'}
+                      {(() => {
+                        const ticketRaisedByEmployee = employees.some(emp => emp.email === ticket.email);
+                        const ticketRaisedByClient = clients.some(client => client.email === ticket.email);
+                        const isClientHead = clients.find(c => c.email === currentUserEmail)?.role === 'client_head';
+                        if (ticketRaisedByClient) {
+                          // Read-only for client-raised tickets
+                          return ticket.assignedTo ? (ticket.assignedTo.name || ticket.assignedTo.email) : '-';
+                        }
+                        return (
+                          <div className="flex items-center gap-2">
+                            {ticketRaisedByEmployee ? (
+                              <select
+                                value={ticket.assignedTo?.email || ''}
+                                onChange={(e) => handleAssignTicket(ticket.id, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              >
+                                <option value="" disabled>
+                                  {ticket.assignedTo ? ticket.assignedTo.name : 'Assign...'}
+                                </option>
+                                {isClientHead ? (
+                                  clients.map(user => (
+                                    <option key={user.id} value={user.email}>
+                                      {user.email.split('@')[0]}
+                                    </option>
+                                  ))
+                                ) : (
+                                  ticket.assignedTo?.email !== currentUserEmail && (
+                                    <option value={currentUserEmail}>
+                                      Assign to me ({currentUserEmail.split('@')[0]})
+                                    </option>
+                                  )
+                                )}
+                              </select>
+                            ) : (
+                              ticket.assignedTo ? (ticket.assignedTo.name || ticket.assignedTo.email) : '-'
+                            )}
+                            {ticket.assignedTo && ticketRaisedByEmployee && (
+                              // Only allow unassign for employee-raised tickets
+                              (!employees.some(emp => emp.email === ticket.assignedTo.email) &&
+                                (ticketRaisedByEmployee || clients.some(c => c.email === ticket.assignedTo.email))) && (
+                                <button
+                                  type="button"
+                                  className="ml-2 px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    handleUnassignTicket(ticket.id);
+                                  }}
+                                >
+                                  Unassign
+                                </button>
+                              )
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {ticket.email === currentUserEmail && (
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setEditTicketData(ticket);
-                            setShowEditTicketModal(true);
-                          }}
-                          className="text-blue-600 hover:underline"
-                        >
-                          Edit
-                        </button>
-                      )}
+                      {ticket.lastUpdated ? new Date(ticket.lastUpdated.toDate()).toLocaleString() : 'N/A'}
                     </td>
                   </tr>
                 ))}
@@ -480,113 +515,9 @@ const ClientTickets = ({ setActiveTab }) => {
           </div>
         </div>
       )}
-      {/* Edit Ticket Modal */}
-      {showEditTicketModal && editTicketData && (
-        <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
-          <div className="absolute inset-0 bg-black bg-opacity-40 backdrop-blur-sm"></div>
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg p-6 z-10">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Edit Ticket</h2>
-              <button
-                onClick={() => setShowEditTicketModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                &times;
-              </button>
-            </div>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  const ticketRef = doc(db, 'tickets', editTicketData.id);
-                  await updateDoc(ticketRef, {
-                    subject: editTicketData.subject,
-                    description: editTicketData.description,
-                    priority: editTicketData.priority,
-                    status: editTicketData.status,
-                    lastUpdated: new Date()
-                  });
-                  // Update local state
-                  setTicketsData(prev => prev.map(t =>
-                    t.id === editTicketData.id ? { ...t, ...editTicketData, lastUpdated: new Date() } : t
-                  ));
-                  setShowEditTicketModal(false);
-                  setEditTicketData(null);
-                } catch (err) {
-                  alert('Failed to update ticket.');
-                }
-              }}
-            >
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                <input
-                  type="text"
-                  value={editTicketData.subject || ''}
-                  onChange={e => setEditTicketData({ ...editTicketData, subject: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={editTicketData.description || ''}
-                  onChange={e => setEditTicketData({ ...editTicketData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg"
-                  rows={4}
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                <select
-                  value={editTicketData.priority || 'Medium'}
-                  onChange={e => setEditTicketData({ ...editTicketData, priority: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg"
-                  required
-                >
-                  <option value="High">High</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Low">Low</option>
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  value={editTicketData.status || 'Open'}
-                  onChange={e => setEditTicketData({ ...editTicketData, status: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg"
-                  required
-                >
-                  <option value="Open">Open</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Resolved">Resolved</option>
-                  <option value="Closed">Closed</option>
-                </select>
-              </div>
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEditTicketModal(false)}
-                  className="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </>
   );
 };
  
 export default ClientTickets;
- 
  

@@ -1,17 +1,14 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import Client from '../pages/Ticketing';
 import Admin from "../pages/Admin";
 import ClientDashboard from '../pages/ClientDashboard';
 import ClientTickets from '../pages/ClientTickets';
 import EmployeeDashboard from '../pages/EmployeeDashboard';
 import Login from '../pages/Login';
-
 import AdminTickets from '../pages/AdminTickets';
 import PropTypes from 'prop-types';
 import Forgot from '../pages/ForgotPassword';
 import Projects from "../pages/Projects";
-import TicketDetails from "../pages/TicketDetails";
 import Ticketing from "../pages/Ticketing";
 import ProjectManagerDashboard from "../pages/ProjectManagerDashboard";
 import ClientHeadDashboard from "../pages/ClientHeadDashboard";
@@ -144,7 +141,6 @@ function Routers() {
       <Route path="/employee-tickets" element={<EmployeeTickets />} />
       <Route path="/forgot-password" element={<Forgot />} />
       <Route path="/projects" element={<Projects />} />
-      <Route path="/ticket/:id" element={<TicketDetails />} />
       <Route path="/ticketing" element={<Ticketing />} />
       <Route path="/project-manager-dashboard" element={<ProjectManagerDashboard />} />
       <Route path="/client-head-dashboard" element={<ClientHeadDashboard />} />

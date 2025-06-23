@@ -474,7 +474,7 @@ function AdminTickets() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 text-sm text-gray-700 mb-1">
                     <span className="font-semibold">Ticket #</span>
-                    <span className="text-blue-600">{selectedTicket.id.slice(-6).toUpperCase()}</span>
+                    <span className="text-blue-600">{selectedTicket.ticketNumber}</span>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     <User className="w-4 h-4 mr-1 inline-block" /> {selectedTicket.createdBy}

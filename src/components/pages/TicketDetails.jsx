@@ -1,25 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
+import { useState, useEffect } from 'react';
 import { doc, getDoc, updateDoc, arrayUnion, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../firebase/config';
 import {
   ArrowLeft,
-  Mail,
   User,
   Tag,
   Clock,
-  Calendar,
   Hash,
   Info,
   Briefcase,
   Send,
-  AlertCircle,
   CheckCircle,
-  MessageSquare,
-  FileText,
   Paperclip,
   Link
 } from 'lucide-react';
 import { sendEmail } from '../../utils/sendEmail';
+import { fetchProjectMemberEmails } from '../../utils/emailUtils';
+
+// Helper to safely format timestamps
+function formatTimestamp(ts) {
+  if (!ts) return '';
+  if (typeof ts === 'string') {
+    return new Date(ts).toLocaleString();
+  }
+  if (typeof ts.toDate === 'function') {
+    return ts.toDate().toLocaleString();
+  }
+  return '';
+}
 
 const TicketDetails = ({ ticketId, onBack }) => {
   const [ticket, setTicket] = useState(null);
@@ -30,32 +39,62 @@ const TicketDetails = ({ ticketId, onBack }) => {
   const [activeTab, setActiveTab] = useState('Conversations');
 
   useEffect(() => {
-    const fetchTicketDetails = async () => {
+    const fetchTicketAndUsers = async () => {
       if (!ticketId) {
         setError('No ticket ID provided.');
         setLoading(false);
         return;
       }
 
+      setLoading(true);
       try {
+        // Fetch ticket details
         const ticketRef = doc(db, 'tickets', ticketId);
         const ticketSnap = await getDoc(ticketRef);
-
-        if (ticketSnap.exists()) {
-          setTicket({ id: ticketSnap.id, ...ticketSnap.data() });
-          setError(null);
-        } else {
+        if (!ticketSnap.exists()) {
           setError('Ticket not found.');
+          setLoading(false);
+          return;
+        }
+        const ticketData = { id: ticketSnap.id, ...ticketSnap.data() };
+        setTicket(ticketData);
+
+        // Fetch current user data
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            // setCurrentUserData(userDocSnap.data());
+          }
+        }
+
+        // Determine who can be assigned the ticket
+        const usersRef = collection(db, 'users');
+        const ticketCreatorQuery = query(usersRef, where('email', '==', ticketData.email));
+        const ticketCreatorSnap = await getDocs(ticketCreatorQuery);
+
+        if (!ticketCreatorSnap.empty) {
+          const creatorData = ticketCreatorSnap.docs[0].data();
+          const targetRole = creatorData.role === 'client' ? 'employee' : 'client';
+
+          const assignableUsersQuery = query(
+            usersRef,
+            where('project', '==', ticketData.project),
+            where('role', '==', targetRole)
+          );
+          const assignableUsersSnap = await getDocs(assignableUsersQuery);
+          // setAssignableUsers(usersList);
         }
       } catch (err) {
-        console.error('Error fetching ticket details:', err);
-        setError('Failed to load ticket details.');
+        console.error('Error fetching data:', err);
+        setError('Failed to load ticket details or users.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTicketDetails();
+    fetchTicketAndUsers();
   }, [ticketId]);
 
   const handleAddResponse = async () => {
@@ -95,7 +134,7 @@ const TicketDetails = ({ ticketId, onBack }) => {
           priority: updatedTicket.priority,
           category: updatedTicket.category,
           project: updatedTicket.project,
-          assigned_to: updatedTicket.assignedTo || 'Not Assigned',
+          assigned_to: updatedTicket.assignedTo ? (updatedTicket.assignedTo.name || updatedTicket.assignedTo.email) : '-',
           created: updatedTicket.created ? new Date(updatedTicket.created.toDate()).toLocaleString() : '',
           requester: `${updatedTicket.customer} (${updatedTicket.email})`,
           description: updatedTicket.description,
@@ -125,14 +164,6 @@ const TicketDetails = ({ ticketId, onBack }) => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  // Helper to fetch all emails of users in the selected project
-  const fetchProjectMemberEmails = async (projectName) => {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('project', '==', projectName));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data().email).filter(Boolean);
   };
 
   if (loading) {
@@ -200,6 +231,19 @@ const TicketDetails = ({ ticketId, onBack }) => {
           </div>
         </div>
 
+        {/* Assignment section */}
+        <div className="mb-8 px-2">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border">
+            <h3 className="text-base font-semibold text-gray-800 mb-3">Assignee</h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-gray-900">{ticket.assignedTo ? (ticket.assignedTo.name || ticket.assignedTo.email) : '-'}</p>
+                {ticket.assignedTo && <p className="text-xs text-gray-500">{ticket.assignedTo.email}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Tabs */}
         <div className="border-b mb-8 px-2">
           <nav className="flex flex-wrap gap-2">
@@ -234,7 +278,7 @@ const TicketDetails = ({ ticketId, onBack }) => {
                         <div className="bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
                           <div className="flex items-center justify-between mb-1">
                             <span className="font-semibold text-blue-700">Admin</span>
-                            <span className="text-xs text-gray-400">{response.timestamp ? new Date(response.timestamp.toDate()).toLocaleString() : 'N/A'}</span>
+                            <span className="text-xs text-gray-400">{formatTimestamp(response.timestamp)}</span>
                           </div>
                           <div className="text-gray-900 whitespace-pre-wrap leading-relaxed">{response.message}</div>
                         </div>
@@ -251,7 +295,7 @@ const TicketDetails = ({ ticketId, onBack }) => {
                         <div className="bg-white border border-green-100 rounded-xl p-4 shadow-sm">
                           <div className="flex items-center justify-between mb-1">
                             <span className="font-semibold text-green-700">You</span>
-                            <span className="text-xs text-gray-400">{response.timestamp ? new Date(response.timestamp.toDate()).toLocaleString() : 'N/A'}</span>
+                            <span className="text-xs text-gray-400">{formatTimestamp(response.timestamp)}</span>
                           </div>
                           <div className="text-gray-900 whitespace-pre-wrap leading-relaxed">{response.message}</div>
                         </div>
@@ -304,13 +348,13 @@ const TicketDetails = ({ ticketId, onBack }) => {
             <div className="space-y-8">
               <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div><span className="font-semibold text-gray-700">Request ID:</span> {ticket.id}</div>
+                  <div><span className="font-semibold text-gray-700">Request ID:</span> {ticket.ticketNumber}</div>
                   <div><span className="font-semibold text-gray-700">Status:</span> {ticket.status}</div>
                   <div><span className="font-semibold text-gray-700">Priority:</span> {ticket.priority}</div>
                   <div><span className="font-semibold text-gray-700">Category:</span> {ticket.category}</div>
                   <div><span className="font-semibold text-gray-700">Project:</span> {ticket.project}</div>
                   <div><span className="font-semibold text-gray-700">Created:</span> {ticket.created ? new Date(ticket.created.toDate()).toLocaleString() : 'N/A'}</div>
-                  <div><span className="font-semibold text-gray-700">Assigned To:</span> {ticket.assignedTo || 'Not Assigned'}</div>
+                  <div><span className="font-semibold text-gray-700">Assigned To:</span> {ticket.assignedTo ? (ticket.assignedTo.name || ticket.assignedTo.email) : '-'}</div>
                   <div><span className="font-semibold text-gray-700">Requester:</span> {ticket.customer} ({ticket.email})</div>
                 </div>
               </div>
@@ -461,7 +505,7 @@ const TicketDetails = ({ ticketId, onBack }) => {
           <Hash className="w-5 h-5 text-blue-400" />
           <div>
             <div className="text-xs text-gray-500 font-semibold">Request ID</div>
-            <div className="text-lg font-bold text-gray-900 tracking-tight">{ticket.id}</div>
+            <div className="text-lg font-bold text-gray-900 tracking-tight">{ticket.ticketNumber}</div>
           </div>
         </div>
         {/* Status */}
@@ -505,7 +549,7 @@ const TicketDetails = ({ ticketId, onBack }) => {
           <User className="w-5 h-5 text-green-400" />
           <div>
             <div className="text-xs text-gray-500 font-semibold">Technician</div>
-            <div className="font-semibold text-gray-800">{ticket.assignedTo || 'Not Assigned'}</div>
+            <div className="font-semibold text-gray-800">{ticket.assignedTo ? (ticket.assignedTo.name || ticket.assignedTo.email) : '-'}</div>
           </div>
         </div>
         {/* Group & Site */}
@@ -569,6 +613,11 @@ const TicketDetails = ({ ticketId, onBack }) => {
       </aside>
     </div>
   );
+};
+
+TicketDetails.propTypes = {
+  ticketId: PropTypes.string.isRequired,
+  onBack: PropTypes.func.isRequired
 };
 
 export default TicketDetails;
