@@ -63,8 +63,7 @@ const ClientHeadDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [clientHeadName, setClientHeadName] = useState('');
   const [stats, setStats] = useState({
-    totalClients: 0,
-    activeProjects: 0,
+   
     pendingTickets: 0,
     resolvedTickets: 0
   });
@@ -169,7 +168,7 @@ const ClientHeadDashboard = () => {
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, active: activeTab === 'dashboard' },
     { id: 'clients', label: 'People', icon: Users, active: activeTab === 'clients' },
-    { id: 'projects', label: 'Projects', icon: Briefcase, active: activeTab === 'projects' },
+   
     { id: 'tickets', label: 'Tickets', icon: MessageSquare, active: activeTab === 'tickets' }
   ];
  
@@ -311,29 +310,9 @@ const ClientHeadDashboard = () => {
             <div className="space-y-8">
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Clients</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.totalClients}</p>
-                    </div>
-                    <div className="bg-blue-100 rounded-lg p-3">
-                      <Users className="w-6 h-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
+                
  
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Active Projects</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.activeProjects}</p>
-                    </div>
-                    <div className="bg-green-100 rounded-lg p-3">
-                      <Building className="w-6 h-6 text-green-600" />
-                    </div>
-                  </div>
-                </div>
+                
  
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                   <div className="flex items-center justify-between">
@@ -495,12 +474,7 @@ const ClientHeadDashboard = () => {
             </div>
           )}
  
-          {activeTab === 'projects' && (
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Projects Management</h2>
-              {/* Projects management content */}
-            </div>
-          )}
+          
  
           {activeTab === 'tickets' && (
             <ClientHeadTickets setActiveTab={setActiveTab} />
