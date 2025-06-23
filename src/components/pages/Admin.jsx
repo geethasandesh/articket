@@ -868,7 +868,7 @@ function Admin() {
                               : 'border-gray-200 hover:border-blue-200'
                           }`}
                         >
-                          Regular Employee
+                          Employee
                         </button>
                         <button
                           type="button"
@@ -893,7 +893,7 @@ function Admin() {
                               : 'border-gray-200 hover:border-blue-200'
                           }`}
                         >
-                          Regular Client
+                          Client
                         </button>
                         <button
                           type="button"

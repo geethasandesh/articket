@@ -842,7 +842,7 @@ function Projects() {
                               : 'border-gray-200 hover:border-blue-200 bg-white/50'
                           }`}
                         >
-                          Regular Employee
+                           Employee
                         </button>
                         <button
                           type="button"
@@ -867,7 +867,7 @@ function Projects() {
                               : 'border-gray-200 hover:border-purple-200 bg-white/50'
                           }`}
                         >
-                          Regular Client
+                           Client
                         </button>
                         <button
                           type="button"
@@ -1014,7 +1014,7 @@ function Projects() {
                               : 'border-gray-200 hover:border-blue-200 bg-white/50'
                           }`}
                         >
-                          Regular Employee
+                          Employee
                         </button>
                         <button
                           type="button"
@@ -1039,7 +1039,7 @@ function Projects() {
                               : 'border-gray-200 hover:border-purple-200 bg-white/50'
                           }`}
                         >
-                          Regular Client
+                           Client
                         </button>
                         <button
                           type="button"
